@@ -1,10 +1,10 @@
 [submodule "host/sunshine-fork"]
 	path = apps/host/linux
-	url = git@github.com:jgeehreng/plank-host-linux.git
+	url = https://github.com/jgeehreng/plank-host-linux.git
 	branch = main
 [submodule "client/moonlight-qt-fork"]
 	path = apps/client
-	url = git@github.com:jgeehreng/plank-client.git
+	url = https://github.com/jgeehreng/plank-client.git
 	branch = main
 [submodule "third_party/kyber-kymux"]
 	path = third_party/kyber-kymux
