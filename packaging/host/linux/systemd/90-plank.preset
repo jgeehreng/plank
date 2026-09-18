@@ -1,3 +1,4 @@
 enable plank-pam-broker.service
+enable plank-gdm-login.service
 enable plank-display-prepare.service
 enable plank-host.service

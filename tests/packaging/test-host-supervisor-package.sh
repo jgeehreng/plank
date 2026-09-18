@@ -5,6 +5,7 @@ set -euo pipefail
 repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 unit=${repo_dir}/packaging/host/linux/systemd/plank-host.service
 pam_unit=${repo_dir}/packaging/host/linux/systemd/plank-pam-broker.service
+gdm_unit=${repo_dir}/packaging/host/linux/systemd/plank-gdm-login.service
 display_unit=${repo_dir}/packaging/host/linux/systemd/plank-display-prepare.service
 pam_policy=${repo_dir}/packaging/host/linux/pam/plank-host
 host_wacom_rule=${repo_dir}/packaging/host/linux/udev/70-plank-host-wacom.rules
@@ -19,6 +20,7 @@ if rg -q '^EnvironmentFile=' "$unit"; then
   echo 'host service still loads a second environment configuration file' >&2
   exit 1
 fi
+rg -Fxq 'Requires=plank-pam-broker.service plank-gdm-login.service' "$unit"
 rg -Fxq 'NoNewPrivileges=yes' "$unit"
 rg -Fxq 'CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_PTRACE' "$unit"
 rg -Fxq 'ProtectHome=read-only' "$unit"
@@ -45,6 +47,16 @@ rg -Fxq 'LogsDirectoryMode=0700' "$pam_unit"
 rg -Fxq 'StandardOutput=append:/var/log/plank/pam-broker.log' "$pam_unit"
 rg -Fxq 'StandardError=append:/var/log/plank/pam-broker.log' "$pam_unit"
 rg -Fxq 'ExecStart=/usr/libexec/plank/plank-pam-broker --socket /run/plank/pam/auth.sock --config /etc/plank/host.conf' "$pam_unit"
+rg -Fxq 'ExecStart=/usr/libexec/plank/plank-gdm-login --socket /run/plank/gdm/login.sock' "$gdm_unit"
+rg -Fxq 'CapabilityBoundingSet=CAP_SETUID CAP_SETGID' "$gdm_unit"
+rg -Fxq 'RestrictSUIDSGID=no' "$gdm_unit"
+rg -Fxq 'ProtectControlGroups=no' "$gdm_unit"
+rg -Fxq 'RuntimeDirectory=plank/gdm' "$gdm_unit"
+rg -Fxq 'RuntimeDirectoryMode=0700' "$gdm_unit"
+rg -Fxq 'LogsDirectory=plank' "$gdm_unit"
+rg -Fxq 'LogsDirectoryMode=0700' "$gdm_unit"
+rg -Fxq 'StandardOutput=append:/var/log/plank/gdm-login.log' "$gdm_unit"
+rg -Fxq 'StandardError=append:/var/log/plank/gdm-login.log' "$gdm_unit"
 rg -Fxq 'LogsDirectory=plank' "$display_unit"
 rg -Fxq 'LogsDirectoryMode=0700' "$display_unit"
 rg -Fxq 'StandardOutput=append:/var/log/plank/display-prepare.log' "$display_unit"
@@ -74,8 +86,9 @@ fi
 
 rg -Fq '/usr/libexec/plank/plank-host-supervisor' "$spec"
 rg -Fq '/usr/libexec/plank/plank-pam-broker' "$spec"
-if rg -q '/usr/bin/plank-(host-supervisor|pam-broker)' \
-  "$unit" "$pam_unit" "$spec" "$builder"; then
+rg -Fq '/usr/libexec/plank/plank-gdm-login' "$spec"
+if rg -q '/usr/bin/plank-(host-supervisor|pam-broker|gdm-login)' \
+  "$unit" "$pam_unit" "$gdm_unit" "$spec" "$builder"; then
   echo 'internal host service binaries remain exposed in /usr/bin' >&2
   exit 1
 fi
@@ -89,7 +102,7 @@ rg -Fq '/usr/lib/systemd/system/plank-host.service' "$spec"
 rg -Fq '/usr/lib/systemd/system-preset/90-plank.preset' "$spec"
 rg -Fq 'systemctl preset plank-display-prepare.service' "$spec"
 rg -Fxq '%systemd_postun plank-display-prepare.service' "$spec"
-rg -Fxq '%systemd_postun_with_restart plank-pam-broker.service plank-host.service' "$spec"
+rg -Fxq '%systemd_postun_with_restart plank-pam-broker.service plank-gdm-login.service plank-host.service' "$spec"
 if rg -n '^%systemd_postun_with_restart .*plank-display-prepare\.service' "$spec"; then
   echo 'boot-only display preparation is restarted during package upgrades' >&2
   exit 1
@@ -107,7 +120,7 @@ rg -Fxq 'Requires:       logrotate' "$spec"
 rg -Fxq '%dir %attr(0700,root,root) /var/log/plank' "$spec"
 rg -Fq 'install -d -m 0700 "$payload_dir/var/log/plank"' "$builder"
 rg -Fq 'host_rpm_log_directory_gate=pass' "$builder"
-for helper_log in host-supervisor.log pam-broker.log display-prepare.log; do
+for helper_log in host-supervisor.log pam-broker.log gdm-login.log display-prepare.log; do
   rg -Fq "/var/log/plank/${helper_log}" "$logrotate_policy"
 done
 rg -Fxq '    size 10M' "$logrotate_policy"
@@ -153,6 +166,7 @@ fi
 
 rg -Fq 'refusing to package a dirty PLANK source tree' "$builder"
 rg -Fq 'plank-host-supervisor' "$builder"
+rg -Fq 'plank-gdm-login' "$builder"
 rg -Fq 'plank-host-certificate' "$builder"
 rg -Fq 'plank-host-state' "$builder"
 rg -Fq 'PLANK_BOOST_SOURCE_DIR' \

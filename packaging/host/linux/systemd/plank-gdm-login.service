@@ -1,0 +1,44 @@
+[Unit]
+Description=PLANK GDM login helper
+Documentation=file:/usr/share/doc/plank-host/README.md
+X-PLANK-ApplicationId=la.instinctual.Plank.Host
+After=display-manager.service systemd-user-sessions.service
+Before=plank-host.service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/plank/plank-gdm-login --socket /run/plank/gdm/login.sock
+Restart=on-failure
+RestartSec=1s
+TimeoutStopSec=15s
+KillMode=mixed
+UMask=0077
+RuntimeDirectory=plank/gdm
+RuntimeDirectoryMode=0700
+LogsDirectory=plank
+LogsDirectoryMode=0700
+StandardOutput=append:/var/log/plank/gdm-login.log
+StandardError=append:/var/log/plank/gdm-login.log
+User=root
+Group=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID
+RestrictSUIDSGID=no
+ProtectControlGroups=no
+LockPersonality=yes
+ProtectClock=yes
+ProtectHome=read-only
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=full
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=yes
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=yes
+TasksMax=20
+
+[Install]
+WantedBy=multi-user.target
