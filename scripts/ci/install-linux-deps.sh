@@ -42,5 +42,17 @@ case "$role:$ID:$VERSION_ID" in
     test "$(qmake6 -query QT_VERSION)" = 6.10.2
     dpkg-query -W
     ;;
+  client:ubuntu:24.04)
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends \
+      build-essential cmake curl git make nasm ninja-build openssl patch \
+      pkg-config python3 python3-venv python3-pip ripgrep xz-utils dpkg-dev \
+      file libdecor-0-dev libdrm-dev libegl1-mesa-dev libgl1-mesa-dev \
+      libinput-dev libfreetype6-dev libopus-dev libplacebo-dev libssl-dev \
+      libudev-dev libva-dev libvdpau-dev libwayland-dev libx11-dev \
+      libxext-dev libxi-dev libxkbcommon-dev libasound2-dev zlib1g-dev \
+      patchelf binutils
+    dpkg-query -W
+    ;;
   *) echo 'Unsupported CI product/OS tuple' >&2; exit 2 ;;
 esac

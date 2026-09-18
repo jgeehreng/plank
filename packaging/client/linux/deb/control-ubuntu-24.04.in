@@ -1,0 +1,14 @@
+Package: plank-client
+Version: @VERSION@
+Architecture: amd64
+Installed-Size: @INSTALLED_SIZE@
+Maintainer: PLANK Engineering <engineering@instinctual.la>
+Section: net
+Priority: optional
+Depends: bash, libdecor-0-plugin-1-cairo, udev, @DEPENDS@
+Recommends: intel-media-va-driver-non-free
+Description: PLANK remote workstation client (Ubuntu 24.04)
+ Dedicated client for authenticated PLANK sessions on Ubuntu 24.04.
+ The package carries its qualified Qt 6.10.2, SDL3, and FFmpeg 9 runtime
+ privately and leaves the Ubuntu system FFmpeg installation unchanged.
+ Software decode remains available when Intel VA-API is not installed.

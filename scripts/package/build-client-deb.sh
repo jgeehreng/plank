@@ -36,6 +36,14 @@ done
 source "${repo_dir}/scripts/package/package-version.sh"
 plank_load_package_version "$repo_dir"
 package_version=$PLANK_PACKAGE_VERSION
+client_deb_distro=${PLANK_CLIENT_DEB_DISTRO:-ubuntu-26.04}
+case $client_deb_distro in
+  ubuntu-26.04|ubuntu-24.04) ;;
+  *)
+    echo "unsupported client DEB distro: ${client_deb_distro}" >&2
+    exit 2
+    ;;
+esac
 
 for command_name in cmp dpkg-deb dpkg-shlibdeps du git install md5sum realpath rg sha256sum strip tar; do
   command -v "$command_name" >/dev/null || {
@@ -155,6 +163,30 @@ install -D -m 0644 "$ffmpeg_source_dir/COPYING.LGPLv3" \
 for library in libavcodec libavutil libswscale libswresample; do
   cp -a "${ffmpeg_lib_dir}/${library}.so."* "$private_lib_dir/"
 done
+if [[ -n ${PLANK_CLIENT_PRIVATE_LIB_DIR:-} ]]; then
+  [[ -d $PLANK_CLIENT_PRIVATE_LIB_DIR ]] || {
+    echo "private client library directory is unavailable: ${PLANK_CLIENT_PRIVATE_LIB_DIR}" >&2
+    exit 1
+  }
+  find "$PLANK_CLIENT_PRIVATE_LIB_DIR" -maxdepth 1 -type f \( -name '*.so' -o -name '*.so.*' \) \
+    -exec cp -a {} "$private_lib_dir/" \;
+fi
+if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+  qt_runtime_root=${PLANK_CLIENT_QT_RUNTIME:-}
+  [[ -n $qt_runtime_root && -d $qt_runtime_root/lib ]] || {
+    echo "Ubuntu 24.04 client DEB requires PLANK_CLIENT_QT_RUNTIME with pinned Qt 6.10.2" >&2
+    exit 1
+  }
+  mkdir -p "$private_lib_dir/plugins" "$private_lib_dir/qml"
+  find "$qt_runtime_root/lib" -maxdepth 1 -type f \( -name 'libQt6*.so' -o -name 'libQt6*.so.*' \) \
+    -exec cp -a {} "$private_lib_dir/" \;
+  if [[ -d $qt_runtime_root/plugins ]]; then
+    cp -a "$qt_runtime_root/plugins/." "$private_lib_dir/plugins/"
+  fi
+  if [[ -d $qt_runtime_root/qml ]]; then
+    cp -a "$qt_runtime_root/qml/." "$private_lib_dir/qml/"
+  fi
+fi
 cmp --silent "$moonlight_source_dir/app/res/plank-logo.png" \
   "$stage_dir/usr/share/icons/hicolor/512x512/apps/plank-client.png" || {
   echo "packaged client logo differs from the approved runtime source" >&2
@@ -189,12 +221,23 @@ libavutil 61 plank-client
 libswscale 10 plank-client
 libswresample 7 plank-client
 EOF
+if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+  while IFS= read -r library; do
+    soname=$(readelf -d "$library" 2>/dev/null | awk -F'[][]' '/SONAME/ {print $2; exit}')
+    [[ -n $soname && $soname == *.so.* ]] || continue
+    printf '%s %s plank-client\n' "${soname%%.so.*}" "${soname##*.so.}"
+  done < <(find "$private_lib_dir" -maxdepth 1 -type f -name '*.so.*' | sort) \
+    >>"$work_dir/shlibs.local"
+fi
 
 (
   cd "$work_dir"
   mapfile -d '' packaged_elfs < <(
-    find debian/plank-client/usr/bin debian/plank-client/usr/lib/plank \
-      -type f -print0 | sort -z
+    {
+      find debian/plank-client/usr/bin -maxdepth 1 -type f -print0
+      find debian/plank-client/usr/lib/plank -maxdepth 1 -type f \
+        \( -name '*.so' -o -name '*.so.*' -o -name 'plank-client.bin' \) -print0
+    } | sort -z
   )
   dpkg-shlibdeps -O -Lshlibs.local -xplank-client \
     -l"$private_lib_dir" \
@@ -216,10 +259,20 @@ Unstripped build binary SHA-256: $(sha256sum "$moonlight_binary" | awk '{print $
 Packaged binary SHA-256: $(sha256sum "$stage_dir/usr/bin/plank-client" | awk '{print $1}')
 EOF
 installed_size=$(du -sk "$stage_dir/usr" | awk '{print $1}')
+control_template="$repo_dir/packaging/client/linux/deb/control.in"
+if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+  control_template="$repo_dir/packaging/client/linux/deb/control-ubuntu-24.04.in"
+  install -D -m 0755 "$stage_dir/usr/bin/plank-client" \
+    "$private_lib_dir/plank-client.bin"
+  patchelf --set-rpath '$ORIGIN' "$private_lib_dir/plank-client.bin"
+  install -D -m 0755 "$repo_dir/packaging/client/linux/bin/plank-client-ubuntu-24" \
+    "$stage_dir/usr/bin/plank-client"
+  installed_size=$(du -sk "$stage_dir/usr" | awk '{print $1}')
+fi
 sed -e "s/@VERSION@/${package_version}/" \
   -e "s/@INSTALLED_SIZE@/${installed_size}/" \
   -e "s/@DEPENDS@/${depends}/" \
-  "$repo_dir/packaging/client/linux/deb/control.in" >"$stage_dir/DEBIAN/control"
+  "$control_template" >"$stage_dir/DEBIAN/control"
 
 find "$stage_dir" -type d -exec chmod 0755 {} +
 chmod 0644 "$stage_dir/DEBIAN/control" \
@@ -239,18 +292,31 @@ dpkg-deb --root-owner-group --uniform-compression -Zxz --build "$stage_dir" "$de
 
 dpkg-deb --info "$deb_file" >/dev/null
 dpkg-deb --contents "$deb_file" >/dev/null
-for required_package in \
-  intel-media-va-driver-non-free \
-  qml6-module-qtquick \
-  qml6-module-qtquick-controls \
-  qml6-module-qtquick-layouts \
-  qml6-module-qtquick-window \
-  udev; do
-  dpkg-deb --field "$deb_file" Depends | grep -Fq "$required_package" || {
-    echo "client DEB is missing required dependency: ${required_package}" >&2
+if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+  for required_package in libdecor-0-plugin-1-cairo udev; do
+    dpkg-deb --field "$deb_file" Depends | grep -Fq "$required_package" || {
+      echo "client DEB is missing required dependency: ${required_package}" >&2
+      exit 1
+    }
+  done
+  dpkg-deb --field "$deb_file" Recommends | grep -Fq 'intel-media-va-driver-non-free' || {
+    echo "Ubuntu 24.04 client DEB is missing intel-media-va-driver-non-free Recommends" >&2
     exit 1
   }
-done
+else
+  for required_package in \
+    intel-media-va-driver-non-free \
+    qml6-module-qtquick \
+    qml6-module-qtquick-controls \
+    qml6-module-qtquick-layouts \
+    qml6-module-qtquick-window \
+    udev; do
+    dpkg-deb --field "$deb_file" Depends | grep -Fq "$required_package" || {
+      echo "client DEB is missing required dependency: ${required_package}" >&2
+      exit 1
+    }
+  done
+fi
 package_manifest=$(dpkg-deb --contents "$deb_file")
 grep -Eq '^-rw-r--r-- root/root +[0-9]+ .*\./etc/plank/client\.conf$' \
   <<<"$package_manifest" || {
@@ -371,15 +437,21 @@ if rg -n 'plank-client\.service|deb-systemd-helper|systemctl[[:space:]]+--user' 
   exit 1
 fi
 rm -rf -- "$control_audit_dir"
+client_runtime_binary=$stage_dir/usr/bin/plank-client
+client_runpath_origin='$ORIGIN/../lib/plank'
+if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+  client_runtime_binary=$private_lib_dir/plank-client.bin
+  client_runpath_origin='$ORIGIN'
+fi
 "${repo_dir}/scripts/package/audit-package-runtime.sh" \
-  "$stage_dir/usr/bin/plank-client" "$private_lib_dir"
-packaged_dynamic_section=$(readelf -d "$stage_dir/usr/bin/plank-client")
-rg -Fq '$ORIGIN/../lib/plank' <<<"$packaged_dynamic_section" || {
+  "$client_runtime_binary" "$private_lib_dir"
+packaged_dynamic_section=$(readelf -d "$client_runtime_binary")
+rg -Fq "$client_runpath_origin" <<<"$packaged_dynamic_section" || {
   echo "client runtime does not carry its private relative RUNPATH" >&2
   exit 1
 }
 unmanaged_loader_output=$(env -u LD_LIBRARY_PATH \
-  ldd "$stage_dir/usr/bin/plank-client")
+  ldd "$client_runtime_binary")
 for soname in libavcodec.so.63 libavutil.so.61 libswscale.so.10 libswresample.so.7; do
   unmanaged_path=$(awk -v name="$soname" \
     '$1 == name && $2 == "=>" {print $3}' <<<"$unmanaged_loader_output")
@@ -391,7 +463,14 @@ for soname in libavcodec.so.63 libavutil.so.61 libswscale.so.10 libswresample.so
     }
 done
 echo "client_private_runpath_gate=pass"
-dpkg-deb --field "$deb_file" Depends | rg -q 'libqt6core6'
+if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+  if dpkg-deb --field "$deb_file" Depends | rg -q 'libqt6core6|qml6-module-qtquick'; then
+    echo "Ubuntu 24.04 client DEB still depends on distro Qt 6 modules" >&2
+    exit 1
+  fi
+else
+  dpkg-deb --field "$deb_file" Depends | rg -q 'libqt6core6'
+fi
 dpkg-deb --field "$deb_file" Depends | rg -q 'libdecor-0-plugin-1-cairo'
 if dpkg-deb --field "$deb_file" Depends | rg -q 'libdecor-0-plugin-1-gtk'; then
   echo "client DEB still requires the main-thread-only GTK libdecor plugin" >&2
@@ -399,4 +478,4 @@ if dpkg-deb --field "$deb_file" Depends | rg -q 'libdecor-0-plugin-1-gtk'; then
 fi
 echo "client_deb=${deb_file}"
 echo "client_deb_manifest_gate=pass"
-plank_collect_package "$repo_dir" client linux amd64 ubuntu-26.04 "$deb_file"
+plank_collect_package "$repo_dir" client linux amd64 "$client_deb_distro" "$deb_file"

@@ -3,8 +3,10 @@
 # and session lifecycle to the host's standard PAM/SSSD policy. The broker
 # enforces security.allow_root_login before entering this stack.
 auth       substack     system-auth
+auth       optional     pam_gnome_keyring.so
 
 account    include      system-auth
 
 session    optional     pam_keyinit.so force revoke
 session    include      system-auth
+session    optional     pam_gnome_keyring.so auto_start

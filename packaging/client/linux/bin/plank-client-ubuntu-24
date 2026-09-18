@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+root=/usr/lib/plank
+export QT_PLUGIN_PATH="$root/plugins"
+export QML2_IMPORT_PATH="$root/qml"
+export QML_IMPORT_PATH="$root/qml"
+exec "$root/plank-client.bin" "$@"

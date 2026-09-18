@@ -48,15 +48,19 @@ int main(int argc, char **argv)
                 bookmark.plankProfileBitratesKbps[6] != 51000 ||
                 bookmark.plankProfileBitratesKbps[7] != 50000) return 1;
         bookmark.plankProfileBitratesKbps[7] = 62500;
+        bookmark.plankUsername = QStringLiteral("artist.example");
         bookmark.serialize(saved, false);
         saved.sync();
         if (saved.status() != QSettings::NoError) return 1;
         QSettings reloaded(temporary.filePath(QStringLiteral("bookmark.ini")), QSettings::IniFormat);
         NvComputer restored(reloaded);
-        if (restored.plankVideoProfile != 7 || restored.plankCaptureSource != 2 ||
+        if (restored.plankUsername != QStringLiteral("artist.example") ||
+                reloaded.contains(QStringLiteral("plank-password")) ||
+                restored.plankVideoProfile != 7 || restored.plankCaptureSource != 2 ||
                 restored.plankHostLayout != QStringLiteral("fixed") ||
                 restored.plankProfileBitratesKbps != bookmark.plankProfileBitratesKbps ||
-                !restored.sessionToken.isEmpty()) return 1;
+                !restored.sessionToken.isEmpty() ||
+                !restored.isEqualSerialized(bookmark)) return 1;
         // Matching remains a per-bookmark policy across process restarts,
         // independent of either Apple encoding profile and saved fixed size.
         for (int profile : {7, 8}) {

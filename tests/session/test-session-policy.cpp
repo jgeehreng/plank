@@ -91,6 +91,22 @@ int main() {
     std::cerr << "display request did not round trip\n";
     return 11;
   }
+  const session::display_request_t start_user {
+    session::display_request_t::action_t::start_user, {}, {}, {}, 1000
+  };
+  const auto start_user_message = session::display_request_message(start_user);
+  const auto parsed_start_user = session::parse_display_request(start_user_message);
+  if (!parsed_start_user ||
+      parsed_start_user->action != session::display_request_t::action_t::start_user ||
+      parsed_start_user->account_uid != 1000 ||
+      !parsed_start_user->layout.empty() ||
+      !session::display_request_message({
+        session::display_request_t::action_t::start_user,
+        "single", {}, {}, 1000
+      }).empty()) {
+    std::cerr << "user-session start request did not round trip\n";
+    return 16;
+  }
   const session::runtime_display_state_t runtime_state {
     "single", "2560x1600", {}, 1000
   };
