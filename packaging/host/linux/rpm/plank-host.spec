@@ -52,7 +52,7 @@ cp -a payload/. %{buildroot}/
 /usr/bin/chown root:root \
   /var/lib/plank/plank-state.json || exit 1
 /usr/bin/chmod 0600 /var/lib/plank/plank-state.json || exit 1
-%systemd_post plank-pam-broker.service plank-gdm-login.service plank-display-prepare.service plank-host.service
+%systemd_post plank-pam-broker.service plank-display-prepare.service plank-host.service
 /usr/bin/systemctl preset plank-display-prepare.service >/dev/null 2>&1 || :
 /usr/bin/udevadm control --reload-rules >/dev/null 2>&1 || :
 /usr/sbin/modprobe uhid >/dev/null 2>&1 || :
@@ -62,11 +62,11 @@ cp -a payload/. %{buildroot}/
 if [ "$1" -eq 0 ]; then
   /usr/libexec/plank/plank-display-prepare --cleanup || exit 1
 fi
-%systemd_preun plank-pam-broker.service plank-gdm-login.service plank-display-prepare.service plank-host.service
+%systemd_preun plank-pam-broker.service plank-display-prepare.service plank-host.service
 
 %postun
 %systemd_postun plank-display-prepare.service
-%systemd_postun_with_restart plank-pam-broker.service plank-gdm-login.service plank-host.service
+%systemd_postun_with_restart plank-pam-broker.service plank-host.service
 
 %files
 %license /usr/share/licenses/plank-host/LICENSE-Sunshine
@@ -87,12 +87,10 @@ fi
 /usr/libexec/plank/plank-host
 /usr/libexec/plank/plank-host-supervisor
 /usr/libexec/plank/plank-pam-broker
-/usr/libexec/plank/plank-gdm-login
 /usr/libexec/plank/plank-host-certificate
 /usr/libexec/plank/plank-host-state
 /usr/libexec/plank/plank-display-prepare
 /usr/lib/systemd/system/plank-pam-broker.service
-/usr/lib/systemd/system/plank-gdm-login.service
 /usr/lib/systemd/system/plank-display-prepare.service
 /usr/lib/systemd/system/plank-host.service
 /usr/lib/systemd/system-preset/90-plank.preset

@@ -966,31 +966,6 @@ for required_display_token in \
     exit 1
   }
 done
-for required_gdm_token in \
-  'ExecStart=/usr/libexec/plank/plank-gdm-login --socket /run/plank/gdm/login.sock' \
-  'CapabilityBoundingSet=CAP_SETUID CAP_SETGID' \
-  'RestrictSUIDSGID=no' \
-  'ProtectControlGroups=no' \
-  'RuntimeDirectory=plank/gdm'; do
-  rg -Fxq "$required_gdm_token" \
-    "$repo_dir/packaging/host/linux/systemd/plank-gdm-login.service" || {
-    echo "host GDM login helper unit invariant is missing: ${required_gdm_token}" >&2
-    exit 1
-  }
-done
-for required_gdm_token in \
-  'gdm_login_socket_path = "/run/plank/gdm/login.sock"' \
-  'SO_PEERCRED' \
-  'join_session_cgroup' \
-  'become_gdm'; do
-  rg -Fq "$required_gdm_token" \
-    "$source_dir/src/session/gdm_login.h" \
-    "$source_dir/src/session/gdm_login.cpp" \
-    "$source_dir/src/session/gdm_login_helper.cpp" || {
-    echo "host GDM login helper invariant is missing: ${required_gdm_token}" >&2
-    exit 1
-  }
-done
 for required_display_token in \
   'physical|virtual' \
   'active_layout=single' \
@@ -1048,7 +1023,6 @@ done
 for unit_log_pair in \
   'plank-host.service:host-supervisor.log' \
   'plank-pam-broker.service:pam-broker.log' \
-  'plank-gdm-login.service:gdm-login.log' \
   'plank-display-prepare.service:display-prepare.log'; do
   unit_name=${unit_log_pair%%:*}
   log_name=${unit_log_pair#*:}
@@ -1059,7 +1033,7 @@ for unit_log_pair in \
   rg -Fxq "StandardError=append:/var/log/plank/${log_name}" "$unit_path"
 done
 logrotate_policy="$repo_dir/packaging/host/linux/logrotate/plank-host"
-for helper_log in host-supervisor.log pam-broker.log gdm-login.log display-prepare.log; do
+for helper_log in host-supervisor.log pam-broker.log display-prepare.log; do
   rg -Fq "/var/log/plank/${helper_log}" "$logrotate_policy"
 done
 rg -Fxq '    size 10M' "$logrotate_policy"
@@ -1106,7 +1080,7 @@ env \
   -DPLANK_TRANSPORT_DIR="$plank_transport_dir" \
   -DPLANK_TRANSPORT_CARGO_FEATURES="$plank_transport_cargo_features"
 cmake --build "$build_dir" --parallel "$build_jobs" \
-  --target sunshine plank-pam-broker plank-host-supervisor plank-gdm-login
+  --target sunshine plank-pam-broker plank-host-supervisor
 
 nm -C "$build_dir/plank-host" | \
   rg ' [Tt] plank_transport_abi_version$' >/dev/null || {
@@ -1257,6 +1231,5 @@ echo "host_rapid_reconnect_cleanup_gate=pass"
 echo "host_web_ui_absence_gate=pass"
 echo "host_binary=${build_dir}/plank-host"
 echo "pam_broker_binary=${build_dir}/plank-pam-broker"
-echo "gdm_login_binary=${build_dir}/plank-gdm-login"
 echo "host_supervisor_binary=${build_dir}/plank-host-supervisor"
 echo "host_package_binary_gate=pass"
