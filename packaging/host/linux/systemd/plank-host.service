@@ -2,9 +2,9 @@
 Description=PLANK workstation host supervisor
 Documentation=file:/usr/share/doc/plank-host/README.md
 X-PLANK-ApplicationId=la.instinctual.Plank.Host
-Requires=plank-pam-broker.service
+Requires=plank-pam-broker.service plank-gdm-login.service
 Wants=network-online.target
-After=plank-pam-broker.service display-manager.service network-online.target systemd-user-sessions.service
+After=plank-pam-broker.service plank-gdm-login.service display-manager.service network-online.target systemd-user-sessions.service
 
 [Service]
 Type=simple
