@@ -1,6 +1,5 @@
 /var/log/plank/host-supervisor.log
 /var/log/plank/pam-broker.log
-/var/log/plank/gdm-login.log
 /var/log/plank/display-prepare.log {
     su root root
     size 10M
