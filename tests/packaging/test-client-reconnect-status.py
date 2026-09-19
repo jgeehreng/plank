@@ -115,6 +115,11 @@ class ReconnectPresentation(unittest.TestCase):
     def test_timeout_and_logout_use_same_presentation(self):
         self.assertIn('setPlankReconnectStatus("Returning to the sign-in screen...", false)', session)
         self.assertIn('setPlankReconnectStatus("Workstation is taking longer to respond...", true)', session)
+        self.assertIn("m_ReachedUserDesktop", session)
+        self.assertIn("m_LogoutReturnedToLogin", session)
+        self.assertIn("!m_ReachedUserDesktop.load()", session)
+        self.assertIn("Returning to the sign-in screen after logout", session)
+        self.assertIn('{"start_desktop", startDesktop}', http)
 
     def test_completion_clears_status_and_wait_restores_it(self):
         finish = between(session, "bool Session::finishPlankReconnect", "class PlankReconnectThread")
