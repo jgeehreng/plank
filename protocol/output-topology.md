@@ -64,18 +64,21 @@ match the currently active eligible local seat0 X11 session. A closing,
 missing, replaced or unmatched session reports `unknown`.
 
 Logout can destroy the desktop X server before its worker sends any final
-packet. During reconnect, a successful reauthentication reporting `greeter`
-therefore changes the Client status to neutral `Returning to the sign-in
-screen...` while topology, launch and transport are restored. Until that
-confirmation, neutral `Waiting for workstation...` status remains; neither a network outage
+packet. After at least one user-desktop video frame, a successful
+reauthentication reporting `greeter` means seat0 is back at GDM. The Client
+returns to the sign-in UI instead of launching another skip-GDM desktop, and
+that reconnect authenticate sends `start_desktop: false` so PAM cannot start a
+new session. A first-time greeter connection omits the flag or sends `true`
+(the default) and skip-GDM remains the connect path. Until logout is confirmed,
+neutral `Waiting for workstation...` status remains; neither a network outage
 nor a lost X server is assumed to mean logout. A greeter-to-greeter recovery
-may use the same wording. The notice is UI-only, carries no user/session
-identity, grants no access, and does not change any PAM, desktop-ownership,
-shutdown or launch checks. Rendering updates stay on the SDL event thread.
-The existing timeout always takes precedence, even if reauthentication finishes
-late; completion clears the pending status. Stage reporting itself introduces
-no Xlib fatal-handler work or fixed delay; the bounded replacement probe below
-is separate from authenticated stage reporting.
+before any user-desktop frame may still show `Returning to the sign-in
+screen...` while the first desktop opens. The notice is UI-only, carries no
+user/session identity, and grants no access. Rendering updates stay on the SDL
+event thread. The existing timeout always takes precedence, even if
+reauthentication finishes late. Stage reporting itself introduces no Xlib
+fatal-handler work or fixed delay; the bounded replacement probe below is
+separate from authenticated stage reporting.
 
 Reconnect status must not depend on decoded video frames. The Client pauses
 decoding and empties its frame queue during reconnect, so video-overlay text
