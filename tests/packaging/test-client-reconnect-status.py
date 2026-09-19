@@ -119,6 +119,7 @@ class ReconnectPresentation(unittest.TestCase):
         self.assertIn("m_LogoutReturnedToLogin", session)
         self.assertIn("!m_ReachedUserDesktop.load()", session)
         self.assertIn("Returning to the sign-in screen after logout", session)
+        self.assertIn('You have logged out of the workstation.', session)
         self.assertIn('{"start_desktop", startDesktop}', http)
 
     def test_completion_clears_status_and_wait_restores_it(self):
