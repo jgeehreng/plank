@@ -37,6 +37,10 @@ def check_records(records, app_only=False):
     for name, mode in records.items():
         if PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts:
             raise ValueError("unsafe package entry")
+        # macOS 27 writes SIP-protected com.apple.provenance. pkgbuild then
+        # emits AppleDouble `._*` sidecars; they are not Host payload.
+        if PurePosixPath(name).name.startswith("._"):
+            continue
         expected = expected_mode(name, mode.startswith("d"), app_only)
         if mode != expected:
             raise ValueError(f"{name}: permissions {mode}, expected {expected}")
@@ -46,7 +50,10 @@ def check_tree(root, app_only=False):
     # lstat refuses to treat a symlink as an ordinary file or directory.
     records = {".": stat.filemode(root.lstat().st_mode)}
     for path in root.rglob("*"):
-        records[path.relative_to(root).as_posix()] = stat.filemode(path.lstat().st_mode)
+        relative = path.relative_to(root).as_posix()
+        if PurePosixPath(relative).name.startswith("._"):
+            continue
+        records[relative] = stat.filemode(path.lstat().st_mode)
     check_records(records, app_only)
 
 
