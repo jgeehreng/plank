@@ -10,6 +10,8 @@ client_model="${repo_dir}/apps/client/app/gui/computermodel.cpp"
 client_view="${repo_dir}/apps/client/app/gui/PcView.qml"
 
 rg -Fq 'tree.put("root.PlankOccupied", occupied ? 1 : 0);' "$host_http"
+rg -Fq 'sd_seat_get_sessions("seat0", &raw, nullptr, nullptr)' \
+  "${repo_dir}/apps/host/linux/src/session/session_context.cpp"
 rg -Fq 'confirmed_desktop_stage() == "user"' "$host_http"
 rg -Fq 'getXmlString(serverInfo, "PlankOccupied")' "$client_http"
 rg -Fq 'NvHTTP::getPlankOccupied(serverInfo)' "$client_computer"
