@@ -18,5 +18,9 @@ rg -Fq 'NvHTTP::getPlankOccupied(serverInfo)' "$client_computer"
 rg -Fq 'names[InSessionRole] = "inSession";' "$client_model"
 rg -Fq 'qsTr("In Session")' "$client_view"
 rg -Fq 'theme.danger' "$client_view"
+rg -Fq '@[@"PlankOccupied", _occupied ? @"1" : @"0"]' \
+  "${repo_dir}/apps/host/macos/control/server-information.m"
+rg -Fq 'occupied:(phase == PLANKMacScopeDesktop)' \
+  "${repo_dir}/apps/host/macos/session/host-main.m"
 
 echo 'occupancy_indicator=pass'
