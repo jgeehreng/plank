@@ -100,15 +100,16 @@ static BOOL supportedAPI(void) {
 }
 - (BOOL)applyModesWidth:(unsigned)width height:(unsigned)height scale:(unsigned)scale {
     NSMutableArray *available = [NSMutableArray array];
+    // Register the requested geometry first so applySettings can activate at
+    // that size without an immediate mode switch.
+    id requested = [[NSClassFromString(@"CGVirtualDisplayMode") alloc]
+        initWithWidth:width / scale height:height / scale refreshRate:60];
+    if (!requested) return NO;
+    [available addObject:requested];
     for (size_t i = 0; i < sizeof(modes)/sizeof(modes[0]); ++i) {
+        if (modes[i][0] == width && modes[i][1] == height) continue;
         id mode = [[NSClassFromString(@"CGVirtualDisplayMode") alloc]
             initWithWidth:modes[i][0] / scale height:modes[i][1] / scale refreshRate:60];
-        if (!mode) return NO;
-        [available addObject:mode];
-    }
-    if (!presetMode(width, height)) {
-        id mode = [[NSClassFromString(@"CGVirtualDisplayMode") alloc]
-            initWithWidth:width / scale height:height / scale refreshRate:60];
         if (!mode) return NO;
         [available addObject:mode];
     }
@@ -136,59 +137,71 @@ static BOOL supportedAPI(void) {
     IOReturn wake = IOPMAssertionDeclareUserActivity(CFSTR("PLANK authenticated display recovery"),
                                                    kIOPMUserActiveRemote, &activity);
     if (wake != kIOReturnSuccess) NSLog(@"PLANK display wake request failed: %d", wake);
-    // Never reapply CGVirtualDisplay settings to an existing offline output.
-    // SDK/OS 27 can abort WindowServer in GenerateModeListForDisplay on that
-    // path. Wake asynchronously, then wait for the same output to return; the
-    // bounded prepare loop only selects modes once it is online. Do not create
-    // a duplicate output or claim recovery of a permanently removed display.
+    // Never reapply CGVirtualDisplay settings or enumerate modes on an
+    // existing inactive/offline output. SDK/OS 27 can abort WindowServer in
+    // GenerateModeListForDisplay on that path, which tears down the Aqua
+    // session. Wake asynchronously, then wait for the same output to return
+    // active. Only then reuse the last successful mode or select a new one.
+    // Do not create a duplicate output or claim recovery of a removed display.
     if (!valid()) {
         if (activity != kIOPMNullAssertionID) IOPMAssertionRelease(activity);
         completion(NO); return;
     }
-    if (!_display) {
-        // Before the first bookmark preparation there is no owned virtual
-        // output. Topology must first describe the existing desktop so the
-        // Client can request preparation. Wake only; never change a physical
-        // mode or invent a bootstrap resolution to break that dependency.
-        _busy = YES;
-        NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + 2.5;
-        dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
-        dispatch_source_set_timer(timer, DISPATCH_TIME_NOW, 50*NSEC_PER_MSEC, 5*NSEC_PER_MSEC);
-        dispatch_source_set_event_handler(timer, ^{
-            BOOL allowed = valid();
-            CGDirectDisplayID current = CGMainDisplayID();
-            BOOL ready = allowed && current && CGDisplayIsActive(current);
-            if (ready || !allowed || NSProcessInfo.processInfo.systemUptime >= deadline) {
-                dispatch_source_cancel(timer);
-                dispatch_source_set_event_handler(timer, nil);
-                self->_busy = NO;
-                if (activity != kIOPMNullAssertionID) IOPMAssertionRelease(activity);
-                NSLog(@"PLANK bootstrap display recovery %@", ready ? @"ready" : @"not ready");
-                completion(ready);
-            }
-        });
-        dispatch_resume(timer);
-        return;
-    }
-    [self prepareWidth:_readyWidth height:_readyHeight scale:_readyScale valid:valid completion:^(BOOL ready) {
-        if (activity != kIOPMNullAssertionID) IOPMAssertionRelease(activity);
-        NSLog(@"PLANK owned display recovery %@", ready ? @"ready" : @"not ready");
-        completion(ready);
-    }];
+    _busy = YES;
+    NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + 2.5;
+    dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+    dispatch_source_set_timer(timer, DISPATCH_TIME_NOW, 50*NSEC_PER_MSEC, 5*NSEC_PER_MSEC);
+    dispatch_source_set_event_handler(timer, ^{
+        BOOL allowed = valid();
+        CGDirectDisplayID display = self->_display ? self.displayID : CGMainDisplayID();
+        BOOL present = allowed && display && CGDisplayIsActive(display) &&
+            (!self->_display || CGDisplayIsOnline(display));
+        BOOL matches = present && self->_display &&
+            currentModeMatches(display, self->_readyWidth, self->_readyHeight, self->_readyScale);
+        BOOL finished = !allowed || NSProcessInfo.processInfo.systemUptime >= deadline ||
+            (!self->_display && present) || matches || (present && self->_display);
+        if (!finished) return;
+        dispatch_source_cancel(timer);
+        dispatch_source_set_event_handler(timer, nil);
+        self->_busy = NO;
+        if (!self->_display || matches || !present || !allowed) {
+            if (activity != kIOPMNullAssertionID) IOPMAssertionRelease(activity);
+            NSLog(@"PLANK %s display recovery %s", self->_display ? "owned" : "bootstrap",
+                (self->_display ? matches : present) ? "ready" : "not ready");
+            completion((self->_display ? matches : present) && allowed);
+            return;
+        }
+        // The owned output is active again at a different mode. Selecting now
+        // is safe; preparing while it was inactive is not.
+        [self prepareWidth:self->_readyWidth height:self->_readyHeight scale:self->_readyScale
+                     valid:valid completion:^(BOOL ready) {
+            if (activity != kIOPMNullAssertionID) IOPMAssertionRelease(activity);
+            NSLog(@"PLANK owned display recovery %@", ready ? @"ready" : @"not ready");
+            completion(ready);
+        }];
+    });
+    dispatch_resume(timer);
 }
 - (BOOL)selectWidth:(unsigned)width height:(unsigned)height scale:(unsigned)scale {
     CGDirectDisplayID display = self.displayID;
-    if (!CGDisplayIsOnline(display) || CGDisplayIsInMirrorSet(display)) return NO;
+    if (!CGDisplayIsOnline(display)) return NO;
+    BOOL live = CGDisplayIsActive(display) && !CGDisplayIsInMirrorSet(display);
+    BOOL firstAttach = _readyWidth == 0;
+    // Recovery and later bookmark changes must not enumerate or reapply
+    // settings on an inactive or mirrored output. First attach may still
+    // need SetDisplayMode to bring a newly created output online as active.
+    if (!live && !firstAttach) return NO;
     if (_configuredScale != scale ||
         (!presetMode(width, height) && (_dynamicWidth != width || _dynamicHeight != height))) {
+        if (!live) return NO;
         if (![self applyModesWidth:width height:height scale:scale]) return NO;
         // Settings can temporarily take the output offline. Wait for the next
-        // bounded poll; never apply settings while it is offline.
+        // bounded poll; never apply settings or enumerate modes while inactive.
         return NO;
     }
     // Mode objects can appear after the bootstrap canvas becomes active.
     // Already-correct geometry needs no mode switch in either graphical role.
-    if (CGDisplayIsActive(display) && currentModeMatches(display, width, height, scale)) return YES;
+    if (currentModeMatches(display, width, height, scale)) return YES;
     CFArrayRef available = CGDisplayCopyAllDisplayModes(display,
         (__bridge CFDictionaryRef)@{(__bridge NSString *)kCGDisplayShowDuplicateLowResolutionModes: @YES});
     BOOL selected = NO;
@@ -228,7 +241,10 @@ static BOOL supportedAPI(void) {
         if (allowed && !selected) selected = [self selectWidth:width height:height scale:scale];
         CGDirectDisplayID display = self.displayID;
         BOOL ready = allowed && selected && CGDisplayIsActive(display) && currentModeMatches(display, width, height, scale);
-        if (ready || !allowed || NSProcessInfo.processInfo.systemUptime >= deadline) {
+        BOOL stuckOffline = allowed && !selected && display &&
+            !CGDisplayIsOnline(display) &&
+            NSProcessInfo.processInfo.systemUptime >= deadline - 4;
+        if (ready || !allowed || NSProcessInfo.processInfo.systemUptime >= deadline || stuckOffline) {
             dispatch_source_cancel(timer);
             dispatch_source_set_event_handler(timer, nil);
             self->_busy = NO;
@@ -237,7 +253,18 @@ static BOOL supportedAPI(void) {
                 self->_readyScale = scale;
                 NSLog(@"PLANK desktop mode ready: %ux%u scale=%u", width, height, scale);
             }
-            else NSLog(@"PLANK desktop mode not ready: selected=%d authorized=%d", selected, allowed);
+            else {
+                CGDisplayModeRef mode = display ? CGDisplayCopyDisplayMode(display) : NULL;
+                NSLog(@"PLANK desktop mode not ready: selected=%d authorized=%d online=%d active=%d mirror=%d current=%zux%zu points=%zux%zu",
+                    selected, allowed, display && CGDisplayIsOnline(display),
+                    display && CGDisplayIsActive(display),
+                    display && CGDisplayIsInMirrorSet(display),
+                    mode ? CGDisplayModeGetPixelWidth(mode) : 0,
+                    mode ? CGDisplayModeGetPixelHeight(mode) : 0,
+                    mode ? CGDisplayModeGetWidth(mode) : 0,
+                    mode ? CGDisplayModeGetHeight(mode) : 0);
+                if (mode) CGDisplayModeRelease(mode);
+            }
             completion(ready);
         }
     });

@@ -102,12 +102,24 @@
             *status = 503; return nil;
         }
         NSDictionary *topology = _topology();
-        if (!topology || [topology[@"capture"][@"width"] unsignedIntValue] != width ||
-            [topology[@"capture"][@"height"] unsignedIntValue] != height ||
-            [topology[@"capture"][@"logical_bounds"][@"width"] doubleValue] != width / scale ||
-            [topology[@"capture"][@"logical_bounds"][@"height"] doubleValue] != height / scale ||
-            ![topology[@"capture"][@"encoding_profile"] isEqual:PLANKMacEncodingProfile(request[@"encoding_mode"])] || !valid()) {
+        NSDictionary *capture = topology[@"capture"];
+        unsigned actualWidth = [capture[@"width"] unsignedIntValue];
+        unsigned actualHeight = [capture[@"height"] unsignedIntValue];
+        double actualLogicalWidth = [capture[@"logical_bounds"][@"width"] doubleValue];
+        double actualLogicalHeight = [capture[@"logical_bounds"][@"height"] doubleValue];
+        BOOL encodingReady = [capture[@"encoding_profile"] isEqual:PLANKMacEncodingProfile(request[@"encoding_mode"])];
+        BOOL exact = actualWidth == width && actualHeight == height &&
+            actualLogicalWidth == width / scale && actualLogicalHeight == height / scale;
+        BOOL currentDesktop = actualWidth >= 2 && actualHeight >= 2 &&
+            actualWidth <= 8192 && actualHeight <= 8192 &&
+            !(actualWidth & 1) && !(actualHeight & 1) &&
+            actualLogicalWidth > 0 && actualLogicalHeight > 0;
+        if (!topology || !encodingReady || !valid() || !(exact || currentDesktop)) {
             *status = 503; return nil;
+        }
+        if (!exact) {
+            NSLog(@"PLANK desktop preparation kept current %ux%u; requested %ux%u scale=%u was not applied",
+                actualWidth, actualHeight, width, height, scale);
         }
         *status = 200; return topology;
     }

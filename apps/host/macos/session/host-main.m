@@ -270,10 +270,24 @@ static int graphical(const char *service, NSString *role, NSString *directory, B
             [desktopDisplay prepareWidth:width height:height scale:scale
                 valid:^BOOL { return !atomic_load(&cancelled) && valid(); }
                 completion:^(BOOL success) {
-                    if (success && !atomic_load(&cancelled) && valid()) {
-                        capture.selectedDisplay = desktopDisplay.displayID;
-                        capture.encodingMode = encodingMode;
-                        atomic_store(&ready, true);
+                    if (!atomic_load(&cancelled) && valid()) {
+                        if (success) {
+                            capture.selectedDisplay = desktopDisplay.displayID;
+                            capture.encodingMode = encodingMode;
+                            atomic_store(&ready, true);
+                        } else {
+                            // Jump Desktop (or another session display) can be
+                            // the only active framebuffer. A second CGVirtualDisplay
+                            // then stays offline at 1x1. Capture that current
+                            // desktop instead of failing the stream.
+                            CGDirectDisplayID current = CGMainDisplayID();
+                            if (current && CGDisplayIsActive(current)) {
+                                capture.selectedDisplay = 0;
+                                capture.encodingMode = encodingMode;
+                                atomic_store(&ready, true);
+                                NSLog(@"PLANK desktop using current display %u; virtual output stayed offline", current);
+                            }
+                        }
                     }
                     dispatch_semaphore_signal(finished);
                 }];

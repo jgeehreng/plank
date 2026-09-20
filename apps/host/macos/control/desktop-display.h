@@ -17,6 +17,10 @@
 // Authenticated recovery only. Before first preparation, wake the current
 // desktop without changing its mode. Otherwise reuse our display and last
 // successful mode; never create another output or change a physical mode.
+// Never enumerate or reapply modes while a previously ready owned output
+// is inactive: that path can abort WindowServer and drop the Aqua session.
+// First bookmark preparation may select a mode on a newly created output
+// that is online but not yet active.
 - (void)recoverWithValidity:(BOOL (^)(void))valid completion:(void (^)(BOOL))completion;
 @end
 BOOL PLANKMacDesktopModeSupported(unsigned width, unsigned height);

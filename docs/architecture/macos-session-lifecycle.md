@@ -96,7 +96,12 @@ the removed request field. On Linux, retained input uses an internal fixed
 desktop key within the existing single graphical worker, never a query value.
 
 The graphical agent owns its virtual display in-process, with no detached
-display child. The machine coordinator waits for the exact graphical process's
+display child. Authenticated recovery may wake that output after disconnect;
+it must not enumerate or reapply modes while a previously ready output is
+inactive. On macOS 27 that path can abort WindowServer and look like a
+logout. First bookmark preparation may select a mode on a newly created
+output that is online but not yet active. A permanently missing output
+fails clearly instead of creating another display. The machine coordinator waits for the exact graphical process's
 kernel exit event before releasing its exclusive slot; an IPC retirement
 acknowledgment is not enough. The short-lived account verification child
 retains its separate bounded timeout and cannot capture or post input.
@@ -105,8 +110,11 @@ Sign-in and desktop advertise and select the same qualified display modes.
 The sign-in agent bootstraps at 1920x1080 before discovery; an authenticated
 `/plank/display` request selects the bookmark resolution before streaming.
 The Client sends that same resolution again after a graphical-role transition.
-Preparation verifies actual pixel and logical dimensions and fails explicitly
-if they do not match; SCStream output scaling is not a display-mode substitute.
+Preparation verifies actual pixel and logical dimensions. When a requested
+virtual output stays offline because another session display already owns
+the Aqua framebuffer, the Host keeps that current desktop and returns its
+real geometry instead of substituting a different stream size. SCStream
+output scaling is not a display-mode substitute.
 Both roles retain independent virtual-display identities and the same bounded
 scope-checked transaction. This does not extend input or capture authority.
 
