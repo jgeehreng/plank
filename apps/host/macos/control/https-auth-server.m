@@ -21,6 +21,33 @@
 @implementation PLANKMacHTTPSRequest
 @end
 
+// JSON true/false only. NSNumber 0/1 must not pass: @YES isEqual:@1.
+static BOOL plankMacJSONBoolean(id value) {
+    return value == (__bridge id)kCFBooleanTrue || value == (__bridge id)kCFBooleanFalse;
+}
+
+// Current Clients always send optional start_desktop. Linux uses it after PAM.
+// macOS ignores the value: it does not start or destroy the console session.
+static BOOL plankMacOptionalStartDesktop(NSDictionary *body) {
+    id flag = body[@"start_desktop"];
+    return flag == nil || plankMacJSONBoolean(flag);
+}
+
+static BOOL plankMacAuthStartBody(NSDictionary *body) {
+    NSUInteger allowed = body[@"start_desktop"] ? 2 : 1;
+    return body.count == allowed && [body[@"username"] isKindOfClass:NSString.class] &&
+        plankMacOptionalStartDesktop(body);
+}
+
+static BOOL plankMacAuthRespondBody(NSDictionary *body) {
+    NSUInteger allowed = body[@"start_desktop"] ? 3 : 2;
+    return body.count == allowed &&
+        [body[@"conversation_id"] isKindOfClass:NSString.class] &&
+        [body[@"responses"] isKindOfClass:NSArray.class] && [body[@"responses"] count] == 1 &&
+        [body[@"responses"][0] isKindOfClass:NSString.class] &&
+        plankMacOptionalStartDesktop(body);
+}
+
 @implementation PLANKMacHTTPSAuthServer {
     sec_identity_t _identity;
     PLANKMacAuthenticationSession *_sessions;
@@ -112,14 +139,10 @@
             NSString *claimedToken = nil;
             unsigned status = 400;
             if ([value isKindOfClass:NSDictionary.class]) {
-                if ([path isEqual:@"/plank/auth/start"] && [value count] == 1 &&
-                    [value[@"username"] isKindOfClass:NSString.class]) {
+                if ([path isEqual:@"/plank/auth/start"] && plankMacAuthStartBody(value)) {
                     reply = [_sessions startForPeer:request.peer username:value[@"username"]];
                     status = 200;
-                } else if ([path isEqual:@"/plank/auth/respond"] && [value count] == 2 &&
-                    [value[@"conversation_id"] isKindOfClass:NSString.class] &&
-                    [value[@"responses"] isKindOfClass:NSArray.class] && [value[@"responses"] count] == 1 &&
-                    [value[@"responses"][0] isKindOfClass:NSString.class]) {
+                } else if ([path isEqual:@"/plank/auth/respond"] && plankMacAuthRespondBody(value)) {
                     NSMutableData *password = [[value[@"responses"][0] dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
                     reply = [_sessions respondForPeer:request.peer conversation:value[@"conversation_id"] password:password];
                     status = 200;

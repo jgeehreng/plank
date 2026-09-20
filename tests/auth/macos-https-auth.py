@@ -281,8 +281,18 @@ def synthetic(executable, config, receiver=None):
             status, denied = request(tls, port, {"conversation_id": start["conversation_id"],
                                                "responses": ["wrong-synthetic-secret"]}, "/plank/auth/respond")
             assert status == 200 and denied["state"] == "denied"
+            for body in ({"username": "synthetic", "start_desktop": True},
+                         {"username": "synthetic", "start_desktop": False}):
+                status, start = request(tls, port, body)
+                assert status == 200 and start["state"] == "challenge"
+            status, denied = request(tls, port, {"conversation_id": start["conversation_id"],
+                                               "responses": ["wrong-synthetic-secret"],
+                                               "start_desktop": True}, "/plank/auth/respond")
+            assert status == 200 and denied["state"] == "denied"
             for body, path in [([], "/plank/auth/start"), ({"username": 3}, "/plank/auth/start"),
                                ({"username": "synthetic", "extra": 1}, "/plank/auth/start"),
+                               ({"username": "synthetic", "start_desktop": 1}, "/plank/auth/start"),
+                               ({"username": "synthetic", "start_desktop": "true"}, "/plank/auth/start"),
                                ({"conversation_id": "x", "responses": ["a", "b"]}, "/plank/auth/respond")]:
                 status, result = request(tls, port, body, path)
                 assert status == 400 and result["state"] == "denied"

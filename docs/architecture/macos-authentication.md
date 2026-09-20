@@ -100,7 +100,9 @@ No account/credential/token values are logged.
 
 This state class does not implement HTTP itself. The new Network.framework
 adapter supplies TLS 1.3, bounded HTTP/JSON input, non-cacheable replies and
-actual connection-derived peer addresses. Live graphical-session snapshots are
+actual connection-derived peer addresses. The HTTP allowlist accepts the
+Client's optional `start_desktop` boolean and ignores it; macOS never starts
+or destroys a console session from that field. Live graphical-session snapshots are
 now connected and qualified for the already-logged-in desktop case. The stream
 lease below now connects to the experimental HTTP launch and native stream owner.
 
