@@ -11,11 +11,22 @@ static NSData *pen(unsigned action, unsigned tool, float x, float y, float press
     uint8_t p[32]; plank_transport_input_encode_pen(p, action, tool, 0, 255, 65535, x, y, pressure, 0, 0);
     return [NSData dataWithBytes:p length:sizeof(p)];
 }
+static uint64_t penTime = 1000000000;
+static uint64_t nextPenTime(void) { return penTime += 1000000; }
 static NSArray *sendPen(PLANKMacInputEvents *mapper, NSData *payload, PLANKMacInputResult result) {
+    uint64_t time = nextPenTime();
     NSMutableArray *events = [NSMutableArray array];
-    CHECK([mapper consumeType:7 payload:payload time:1000000000 accept:^BOOL(CGEventRef event) {
+    PLANKMacInputResult got = [mapper consumeType:7 payload:payload time:time accept:^BOOL(CGEventRef event) {
         [events addObject:(__bridge id)event]; return YES;
-    }] == result);
+    }];
+    if (got != result) {
+        const uint8_t *p = payload.bytes;
+        fprintf(stderr, "pen failure sendPen: action=%u tool=%u expected=%d got=%d events=%lu time=%llu\n",
+                payload.length ? p[0] : 99, payload.length > 1 ? p[1] : 99,
+                (int)result, (int)got, (unsigned long)events.count, (unsigned long long)time);
+        exit(1);
+    }
+    ++checks;
     return events;
 }
 static CGEventRef event(NSArray *events, unsigned index) { CHECK(index < events.count); return (__bridge CGEventRef)events[index]; }
@@ -45,18 +56,19 @@ int main(void) {
         CGSize pixels[] = {CGSizeMake(3840,2160), CGSizeMake(1920,1080), CGSizeMake(5120,2160)};
         for (unsigned g = 0; g < 3; ++g) {
             PLANKMacInputEvents *mapper = make(source, bounds[g], pixels[g]); CHECK(mapper);
-            NSArray *events = sendPen(mapper, pen(0,1,0,0,1), PLANKMacInputEvent);
+            CHECK(sendPen(mapper, pen(0,1,0,0,1), PLANKMacInputNoEvent).count == 0);
+            NSArray *events = sendPen(mapper, pen(1,1,0,0,0), PLANKMacInputEvent);
             CHECK(events.count == 2 && CGEventGetType(event(events,0)) == kCGEventTabletProximity);
             CHECK(CGEventGetIntegerValueField(event(events,0), kCGTabletProximityEventEnterProximity) == 1);
             checkProximity(event(events,0), YES, NSPointingDeviceTypePen);
-            CHECK(CGEventGetType(event(events,1)) == kCGEventMouseMoved);
+            CHECK(CGEventGetType(event(events,1)) == kCGEventLeftMouseDown);
             CHECK(CGEventGetDoubleValueField(event(events,1), kCGTabletEventPointPressure) == 0);
-            for (unsigned i = 0; i <= 20; ++i) {
+            for (unsigned i = 1; i <= 20; ++i) {
                 float p = i / 20.0f;
-                events = sendPen(mapper, pen(i ? 3 : 1,1,p,p,p), PLANKMacInputEvent);
+                events = sendPen(mapper, pen(3,1,p,p,p), PLANKMacInputEvent);
                 CHECK(events.count == 1);
                 CGEventRef e = event(events,0);
-                CHECK(CGEventGetType(e) == (i ? kCGEventLeftMouseDragged : kCGEventLeftMouseDown));
+                CHECK(CGEventGetType(e) == kCGEventLeftMouseDragged);
                 CHECK(fabs(CGEventGetDoubleValueField(e,kCGTabletEventPointPressure) - p) < .0001);
                 CHECK(CGEventGetIntegerValueField(e,kCGMouseEventSubtype) == kCGEventMouseSubtypeTabletPoint);
                 NSEvent *native = [NSEvent eventWithCGEvent:e]; CHECK(native);
@@ -69,14 +81,14 @@ int main(void) {
                 CHECK(fabs(pos.y - (bounds[g].origin.y + p * (bounds[g].size.height - bounds[g].size.height / pixels[g].height))) < .001);
             }
             events = sendPen(mapper, pen(2,1,1,1,0), PLANKMacInputEvent);
-            CHECK(CGEventGetType(event(events,0)) == kCGEventLeftMouseUp);
-            events = sendPen(mapper, pen(0,2,.5,.5,0), PLANKMacInputEvent);
-            CHECK(events.count == 3); // old tool leaves before eraser enters
-            checkProximity(event(events,0), NO, NSPointingDeviceTypePen);
-            checkProximity(event(events,1), YES, NSPointingDeviceTypeEraser);
-            CHECK(CGEventGetIntegerValueField(event(events,1), kCGTabletProximityEventPointerType) == 3);
+            CHECK(events.count == 2 && CGEventGetType(event(events,0)) == kCGEventLeftMouseUp);
+            checkProximity(event(events,1), NO, NSPointingDeviceTypePen);
+            CHECK(sendPen(mapper, pen(0,2,.5,.5,0), PLANKMacInputNoEvent).count == 0);
             events = sendPen(mapper, pen(1,2,.5,.5,.5), PLANKMacInputEvent);
-            CHECK(CGEventGetType(event(events,0)) == kCGEventLeftMouseDown);
+            CHECK(events.count == 2);
+            checkProximity(event(events,0), YES, NSPointingDeviceTypeEraser);
+            CHECK(CGEventGetIntegerValueField(event(events,0), kCGTabletProximityEventPointerType) == 3);
+            CHECK(CGEventGetType(event(events,1)) == kCGEventLeftMouseDown);
             events = sendPen(mapper, pen(7,0,0,0,0), PLANKMacInputEvent);
             CHECK(events.count == 2 && CGEventGetType(event(events,0)) == kCGEventLeftMouseUp);
             CHECK(CGEventGetIntegerValueField(event(events,1), kCGTabletProximityEventEnterProximity) == 0);
@@ -97,7 +109,7 @@ int main(void) {
             CHECK([mapper stopAndCopyReleaseEvents].count == 0);
         }
         PLANKMacInputEvents *mapper = make(source,bounds[0],pixels[0]);
-        sendPen(mapper,pen(0,1,.5,.5,0),PLANKMacInputEvent);
+        sendPen(mapper,pen(1,1,.5,.5,.5),PLANKMacInputEvent);
         for (unsigned bit = 1; bit <= 4; bit <<= 1) {
             NSMutableData *p = [pen(5,1,NAN,NAN,NAN) mutableCopy]; ((uint8_t *)p.mutableBytes)[2] = bit;
             NSArray *events = sendPen(mapper,p,PLANKMacInputEvent);
@@ -109,12 +121,35 @@ int main(void) {
             events = sendPen(mapper,p,PLANKMacInputEvent);
             CHECK(CGEventGetType(event(events,0)) == (bit == 1 ? kCGEventRightMouseUp : kCGEventOtherMouseUp));
         }
+        sendPen(mapper,pen(2,1,.5,.5,0),PLANKMacInputEvent);
+        mapper = make(source,bounds[0],pixels[0]);
         for (unsigned click = 1; click <= 3; ++click) {
             NSArray *events = sendPen(mapper,pen(1,1,.5,.5,.5),PLANKMacInputEvent);
-            CHECK(CGEventGetIntegerValueField(event(events,0),kCGMouseEventClickState) == click);
+            CHECK(CGEventGetIntegerValueField(event(events, events.count - 1),kCGMouseEventClickState) == click);
             sendPen(mapper,pen(2,1,.5,.5,0),PLANKMacInputEvent);
         }
-        sendPen(mapper,pen(7,0,0,0,0),PLANKMacInputEvent);
+        CHECK(sendPen(mapper,pen(7,0,0,0,0),PLANKMacInputNoEvent).count == 0);
+        NSArray *events = sendPen(mapper,pen(1,1,.5,.5,.5),PLANKMacInputEvent);
+        CHECK(events.count == 2);
+        uint8_t mouse[8];
+        plank_transport_input_encode_absolute_mouse(mouse, 5, 5, 10, 10);
+        NSMutableArray *mouseEvents = [NSMutableArray array];
+        CHECK([mapper consumeType:1 payload:[NSData dataWithBytes:mouse length:8] time:nextPenTime()
+            accept:^BOOL(CGEventRef event) { [mouseEvents addObject:(__bridge id)event]; return YES; }] == PLANKMacInputEvent);
+        CHECK(mouseEvents.count >= 2);
+        CHECK(CGEventGetType(event(mouseEvents,0)) == kCGEventLeftMouseUp);
+        checkProximity(event(mouseEvents, mouseEvents.count - 2), NO, NSPointingDeviceTypePen);
+        CHECK(CGEventGetType(event(mouseEvents, mouseEvents.count - 1)) == kCGEventMouseMoved);
+        sendPen(mapper,pen(1,1,.5,.5,.5),PLANKMacInputEvent);
+        NSMutableArray *buttonEvents = [NSMutableArray array];
+        uint8_t button[2] = {1, 1};
+        CHECK([mapper consumeType:2 payload:[NSData dataWithBytes:button length:2] time:nextPenTime()
+            accept:^BOOL(CGEventRef event) { [buttonEvents addObject:(__bridge id)event]; return YES; }] == PLANKMacInputEvent);
+        CHECK(buttonEvents.count >= 2);
+        checkProximity(event(buttonEvents, buttonEvents.count - 2), NO, NSPointingDeviceTypePen);
+        uint8_t buttonUp[2] = {1, 0};
+        CHECK([mapper consumeType:2 payload:[NSData dataWithBytes:buttonUp length:2] time:nextPenTime()
+            accept:^BOOL(CGEventRef event) { (void)event; return YES; }] == PLANKMacInputEvent);
         for (unsigned length = 0; length < 34; ++length) if (length != 32)
             CHECK(sendPen(mapper,[NSMutableData dataWithLength:length],PLANKMacInputMalformed).count == 0);
         for (unsigned offset = 8; offset <= 24; offset += 4) for (NSNumber *bad in @[@(NAN), @(INFINITY), @(-.1), @1.1]) {
