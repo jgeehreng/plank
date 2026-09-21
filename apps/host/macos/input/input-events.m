@@ -285,6 +285,20 @@ static unsigned penButtonNumber(unsigned bit) { return bit == 1 ? 2 : bit == 2 ?
     if (!accept) return PLANKMacInputMalformed;
     if (type == PLANK_TRANSPORT_INPUT_PEN)
         return [self consumePen:payload time:time accept:accept];
+    // Photoshop crashes on quit if a synthetic tablet is still in proximity.
+    // A real mouse packet means the tablet is no longer the active device:
+    // leave first, then deliver the mouse. Do not keep a live tablet forever.
+    if (_pen.near && (type == PLANK_TRANSPORT_INPUT_ABSOLUTE_MOUSE ||
+                      type == PLANK_TRANSPORT_INPUT_MOUSE_BUTTON)) {
+        uint8_t leave[PLANK_TRANSPORT_INPUT_PEN_SIZE];
+        plank_transport_input_encode_pen(leave, 7, 0, 0, 255, 65535, 0, 0, 0, 0, 0);
+        PLANKMacInputResult left = [self consumePen:[NSData dataWithBytes:leave length:sizeof(leave)]
+                                               time:time accept:accept];
+        if (left == PLANKMacInputStopped || left == PLANKMacInputDenied ||
+                left == PLANKMacInputMalformed) {
+            return left;
+        }
+    }
     PLANKMacInputState previous = _state;
     CGEventRef event = NULL;
     PLANKMacInputResult result = [self createType:type payload:payload time:time event:&event];
@@ -389,7 +403,7 @@ static unsigned penButtonNumber(unsigned bit) { return bit == 1 ? 2 : bit == 2 ?
             delivered = YES;
         }
         if (next.near) {
-            next.near = NO; next.buttons = 0;
+            next.near = NO; next.buttons = 0; next.clickCount = 0;
             if (![self deliverPen:next kind:kCGEventTabletProximity time:time accept:accept])
                 return _state.stopped ? PLANKMacInputStopped : PLANKMacInputDenied;
             delivered = YES;
@@ -403,6 +417,9 @@ static unsigned penButtonNumber(unsigned bit) { return bit == 1 ? 2 : bit == 2 ?
             _bounds.origin.y + y * (_bounds.size.height - _bounds.size.height / _pixels.height));
     }
     if (!next.near) {
+        // Hover-only must not advertise a tablet. Photoshop treats a lingering
+        // proximity device as still present when it quits.
+        if (action == 0 || action == 5) return PLANKMacInputNoEvent;
         if (next.tool != tool) next.clickCount = 0;
         next.near = YES; next.tool = tool; next.down = NO; next.pressure = 0; next.buttons = 0;
         if (![self deliverPen:next kind:kCGEventTabletProximity time:time accept:accept])
@@ -423,6 +440,11 @@ static unsigned penButtonNumber(unsigned bit) { return bit == 1 ? 2 : bit == 2 ?
         if (![self deliverPen:next kind:kind time:time accept:accept])
             return _state.stopped ? PLANKMacInputStopped : PLANKMacInputDenied;
         delivered = YES;
+        if (action == 2 && next.near) {
+            next.near = NO; next.buttons = 0;
+            if (![self deliverPen:next kind:kCGEventTabletProximity time:time accept:accept])
+                return _state.stopped ? PLANKMacInputStopped : PLANKMacInputDenied;
+        }
     }
     for (unsigned bit = 1; bit <= 4; bit <<= 1) if ((next.buttons ^ p[2]) & bit) {
         next.buttons ^= bit;
