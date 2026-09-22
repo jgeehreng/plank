@@ -56,7 +56,9 @@ int main(void) {
         CGSize pixels[] = {CGSizeMake(3840,2160), CGSizeMake(1920,1080), CGSizeMake(5120,2160)};
         for (unsigned g = 0; g < 3; ++g) {
             PLANKMacInputEvents *mapper = make(source, bounds[g], pixels[g]); CHECK(mapper);
-            CHECK(sendPen(mapper, pen(0,1,0,0,1), PLANKMacInputNoEvent).count == 0);
+            NSArray *hover = sendPen(mapper, pen(0,1,0,0,1), PLANKMacInputEvent);
+            CHECK(hover.count == 1 && CGEventGetType(event(hover,0)) == kCGEventMouseMoved);
+            CHECK(CGEventGetIntegerValueField(event(hover,0), kCGMouseEventSubtype) == 0);
             NSArray *events = sendPen(mapper, pen(1,1,0,0,0), PLANKMacInputEvent);
             CHECK(events.count == 2 && CGEventGetType(event(events,0)) == kCGEventTabletProximity);
             CHECK(CGEventGetIntegerValueField(event(events,0), kCGTabletProximityEventEnterProximity) == 1);
@@ -83,7 +85,9 @@ int main(void) {
             events = sendPen(mapper, pen(2,1,1,1,0), PLANKMacInputEvent);
             CHECK(events.count == 2 && CGEventGetType(event(events,0)) == kCGEventLeftMouseUp);
             checkProximity(event(events,1), NO, NSPointingDeviceTypePen);
-            CHECK(sendPen(mapper, pen(0,2,.5,.5,0), PLANKMacInputNoEvent).count == 0);
+            NSArray *eraserHover = sendPen(mapper, pen(0,2,.5,.5,0), PLANKMacInputEvent);
+            CHECK(eraserHover.count == 1 && CGEventGetType(event(eraserHover,0)) == kCGEventMouseMoved);
+            CHECK(CGEventGetIntegerValueField(event(eraserHover,0), kCGMouseEventSubtype) == 0);
             events = sendPen(mapper, pen(1,2,.5,.5,.5), PLANKMacInputEvent);
             CHECK(events.count == 2);
             checkProximity(event(events,0), YES, NSPointingDeviceTypeEraser);
