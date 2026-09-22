@@ -416,10 +416,21 @@ static unsigned penButtonNumber(unsigned bit) { return bit == 1 ? 2 : bit == 2 ?
         next.position = CGPointMake(_bounds.origin.x + x * (_bounds.size.width - _bounds.size.width / _pixels.width),
             _bounds.origin.y + y * (_bounds.size.height - _bounds.size.height / _pixels.height));
     }
+    if (!next.near && action == 0) {
+        // Hover positions the pointer. It must not enter tablet proximity:
+        // Photoshop treats a lingering proximity device as still present on quit.
+        CGEventRef event = CGEventCreateMouseEvent(_source, kCGEventMouseMoved, next.position, kCGMouseButtonLeft);
+        if (!event) { _state.stopped = YES; return PLANKMacInputStopped; }
+        CGEventSetFlags(event, _state.flags);
+        CGEventSetTimestamp(event, time);
+        BOOL delivered = accept(event);
+        CFRelease(event);
+        if (!delivered) return PLANKMacInputDenied;
+        _state.position = next.position;
+        _state.lastTime = time;
+        return PLANKMacInputEvent;
+    }
     if (!next.near) {
-        // Hover-only must not advertise a tablet. Photoshop treats a lingering
-        // proximity device as still present when it quits.
-        if (action == 0 || action == 5) return PLANKMacInputNoEvent;
         if (next.tool != tool) next.clickCount = 0;
         next.near = YES; next.tool = tool; next.down = NO; next.pressure = 0; next.buttons = 0;
         if (![self deliverPen:next kind:kCGEventTabletProximity time:time accept:accept])
