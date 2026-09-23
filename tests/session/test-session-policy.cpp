@@ -54,6 +54,33 @@ int main() {
   active.remote = true;
   if (session::desktop_stage(attached, active) != "unknown") return 26;
   if (session::confirmed_desktop_stage() != "unknown") return 27;
+  const auto owner = attached;
+  const std::optional<session::descriptor_t> attested {owner};
+  const std::optional<session::descriptor_t> current {owner};
+  using access = session::desktop_account_access_e;
+  if (session::desktop_account_access(owner.uid, true, attested, current) !=
+      access::allowed) return 28;
+  auto greeter = owner;
+  greeter.session_class = "greeter";
+  if (session::desktop_account_access(
+        owner.uid, true, std::optional {greeter}, std::optional {greeter}
+      ) != access::allowed) return 29;
+  auto someone_else = owner;
+  someone_else.uid = owner.uid + 1;
+  if (session::desktop_account_access(
+        owner.uid, true, std::optional {someone_else}, std::optional {someone_else}
+      ) != access::wrong_account) return 30;
+  auto replacement = owner;
+  replacement.id = "replacement";
+  if (session::desktop_account_access(
+        owner.uid, true, attested, std::optional {replacement}
+      ) != access::pending) return 31;
+  if (session::desktop_account_access(owner.uid, true, std::nullopt, current) !=
+      access::pending) return 32;
+  if (session::desktop_account_access(0, true, attested, current) !=
+        access::wrong_account ||
+      session::desktop_account_access(owner.uid, false, attested, current) !=
+        access::wrong_account) return 33;
   auto descriptor = valid_session();
   if (!session::eligible_graphical_session(descriptor)) {
     std::cerr << "active local seat0 X11 user was rejected\n";
