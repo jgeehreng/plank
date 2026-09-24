@@ -314,6 +314,8 @@ rg -Fq 'host_rpm_upnp_absence_gate=pass' \
   "$repo_dir/scripts/package/build-host-rpm.sh"
 rg -Fq 'restarting the PLANK media worker for fresh X11/NvFBC state' \
   "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
+rg -Fq 'Seat0 is at the sign-in screen while desktop session ' \
+  "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
 rg -Fq 'stop_worker(worker);' \
   "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
 rg -Fq 'Scheduled PLANK display transition from ' \
