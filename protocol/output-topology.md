@@ -68,9 +68,8 @@ packet. The host publishes `greeter` only after an explicit workstation logout.
 A sign-in screen reached because that X server disappeared publishes `unknown`.
 After at least one user-desktop video frame, a successful reauthentication
 reporting `greeter` means seat0 was returned to GDM on purpose. The Client
-returns to the sign-in UI. Reconnect authenticate sends `start_desktop: true`.
-The host ignores that request after an explicit logout, and honors it when the
-sign-in screen is not a logout so PAM can open the desktop again. A first-time
+returns to the sign-in UI, and that reconnect authenticate sends
+`start_desktop: false` so PAM cannot start a new session. A first-time
 greeter connection omits the flag or sends `true` (the default) and skip-GDM
 remains the connect path. Until logout is confirmed, neutral `Waiting for
 workstation...` status remains; neither a network outage nor a lost X server
