@@ -318,6 +318,8 @@ rg -Fq 'Seat0 is at the sign-in screen while desktop session ' \
   "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
 rg -Fq 'Refusing to start a graphical session after an explicit logout' \
   "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
+rg -Fq 'Seat0 returned to the sign-in screen without a display change; treating it as logout' \
+  "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
 rg -Fq 'PLANK_LOGOUT_GREETER' \
   "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp" \
   "$repo_dir/apps/host/linux/src/nvhttp.cpp"
