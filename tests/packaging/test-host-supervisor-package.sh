@@ -316,6 +316,11 @@ rg -Fq 'restarting the PLANK media worker for fresh X11/NvFBC state' \
   "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
 rg -Fq 'Seat0 is at the sign-in screen while desktop session ' \
   "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
+rg -Fq 'Refusing to start a graphical session after an explicit logout' \
+  "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
+rg -Fq 'PLANK_LOGOUT_GREETER' \
+  "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp" \
+  "$repo_dir/apps/host/linux/src/nvhttp.cpp"
 rg -Fq 'stop_worker(worker);' \
   "$repo_dir/apps/host/linux/src/session/host_supervisor.cpp"
 rg -Fq 'Scheduled PLANK display transition from ' \
