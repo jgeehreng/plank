@@ -64,8 +64,10 @@ match the currently active eligible local seat0 X11 session. A closing,
 missing, replaced or unmatched session reports `unknown`.
 
 Logout can destroy the desktop X server before its worker sends any final
-packet. The host publishes `greeter` only after an explicit workstation logout.
-A sign-in screen reached because that X server disappeared publishes `unknown`.
+packet. The host publishes `greeter` after an explicit workstation logout, and
+also when seat0 is at the sign-in screen and that user's X session is already
+gone. A sign-in screen reached while the previous desktop session still exists
+publishes `unknown` until the display-change window ends.
 After at least one user-desktop video frame, a successful reauthentication
 reporting `greeter` means seat0 was returned to GDM on purpose. The Client
 returns to the sign-in UI, and that reconnect authenticate sends
