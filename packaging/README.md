@@ -102,10 +102,10 @@ private directory without modifying Ubuntu's loader configuration, exporting
 Kyber's pinned commit is recorded in `BUILD-INFO`, and its AGPL and third-party
 notices are installed with the package. KyProto owns native media FEC; the
 retired common-c nanors implementation is not built or packaged.
-Qt Quick's QML modules are distribution-owned runtime dependencies and must be
-declared explicitly because ELF dependency scanners cannot discover QML
-imports. A fresh Ubuntu installation requires the Qt Quick, Controls, Layouts,
-and Window QML module packages. It also requires Ubuntu's
+On Ubuntu 26.04, Qt Quick's QML modules are distribution-owned runtime
+dependencies and must be declared explicitly because ELF dependency scanners
+cannot discover QML imports. A fresh Ubuntu 26.04 installation requires the
+Qt Quick, Controls, Layouts, and Window QML module packages. It also requires Ubuntu's
 `intel-media-va-driver-non-free`, which provides the `iHD_drv_video.so`
 implementation behind the generic VA-API libraries used for Intel hardware
 decoding. This package conflicts with and replaces the open variant.
@@ -131,6 +131,13 @@ qualified Ubuntu builder with the pinned FFmpeg work directory:
 dpkg-deb --info "$PLANK_CLIENT_DEB"
 dpkg-deb --contents "$PLANK_CLIENT_DEB"
 ```
+
+Ubuntu 24.04 cannot install that DEB. Build it on an Ubuntu 24.04 x86_64
+machine with `scripts/package/build-ubuntu-24-client.sh`. That package
+carries Qt 6.10.2, including the Wayland platform plugin, SDL3, and the
+same private FFmpeg 9.0.1. It is not a qualified client until it is
+installed on a clean Ubuntu 24.04 desktop and passes the same video,
+audio, and input checks as the Ubuntu 26.04 client.
 
 The client is an interactive application and deliberately ships no systemd
 user service or desktop autostart entry. Launch it from the PLANK
