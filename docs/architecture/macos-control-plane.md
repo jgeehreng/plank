@@ -32,7 +32,11 @@ bound accommodates escaped JSON for the verifier's 4096-byte UTF-8 password
 limit. It rejects duplicate/folded headers, ambiguous framing, Transfer-Encoding,
 Expect, protocol upgrades, invalid header bytes and coalesced trailing requests.
 It never serves a second request on a connection. Unknown paths and malformed
-schemas fail without accessing desktop content.
+schemas fail without accessing desktop content. Auth JSON is an allowlist:
+`username` on start, `conversation_id` and `responses` on respond, plus an
+optional JSON boolean `start_desktop` on both. The current Client always sends
+that flag. macOS accepts it and ignores the value; it does not start or destroy
+a console session from this field. Any other key is rejected.
 
 There are at most eight admitted connections and one authentication operation
 in flight; extra authentication work is rejected instead of accumulated in a

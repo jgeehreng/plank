@@ -59,6 +59,9 @@ available. It has no PIN-pairing or persistent client-certificate path, requires
 TLS 1.3, and exposes `POST /plank/auth/start`
 and `POST /plank/auth/respond`. The first body contains `username`;
 the second contains an opaque `conversation_id` and a `responses` array.
+Clients also send an optional JSON boolean `start_desktop` on both requests.
+Linux uses that flag after PAM. macOS accepts the same field and ignores it;
+it does not start or destroy the console session from this flag.
 Replies are non-cacheable JSON with `challenge`, `authenticated`, or `denied`
 state. Successful authentication returns a 256-bit random bearer token bound
 to the client address. Application list, asset, launch, resume, and cancel

@@ -44,6 +44,8 @@ install -D -m 0755 "$build_dir/plank-host" \
   "$payload_dir/usr/libexec/plank/plank-host"
 install -D -m 0755 "$build_dir/plank-pam-broker" \
   "$payload_dir/usr/libexec/plank/plank-pam-broker"
+install -D -m 0755 "$build_dir/plank-gdm-login" \
+  "$payload_dir/usr/libexec/plank/plank-gdm-login"
 install -D -m 0755 "$build_dir/plank-host-supervisor" \
   "$payload_dir/usr/libexec/plank/plank-host-supervisor"
 install -D -m 0755 "$repo_dir/packaging/host/linux/bin/plank-host" \
@@ -58,6 +60,8 @@ install -D -m 0644 "$repo_dir/packaging/host/linux/systemd/plank-host.service" \
   "$payload_dir/usr/lib/systemd/system/plank-host.service"
 install -D -m 0644 "$repo_dir/packaging/host/linux/systemd/plank-pam-broker.service" \
   "$payload_dir/usr/lib/systemd/system/plank-pam-broker.service"
+install -D -m 0644 "$repo_dir/packaging/host/linux/systemd/plank-gdm-login.service" \
+  "$payload_dir/usr/lib/systemd/system/plank-gdm-login.service"
 install -D -m 0644 "$repo_dir/packaging/host/linux/systemd/plank-display-prepare.service" \
   "$payload_dir/usr/lib/systemd/system/plank-display-prepare.service"
 install -D -m 0644 "$repo_dir/packaging/host/linux/systemd/90-plank.preset" \
@@ -147,8 +151,10 @@ rpm -qpR "$rpm_file" | rg -q 'libX11\.so\.6'
 rpm -qpl "$rpm_file" | rg -q '/usr/lib/modules-load\.d/plank\.conf$'
 rpm -qpl "$rpm_file" | rg -q '/usr/libexec/plank/plank-host-supervisor$'
 rpm -qpl "$rpm_file" | rg -q '/usr/libexec/plank/plank-pam-broker$'
+rpm -qpl "$rpm_file" | rg -q '/usr/libexec/plank/plank-gdm-login$'
+rpm -qpl "$rpm_file" | rg -q '/usr/lib/systemd/system/plank-gdm-login\.service$'
 if rpm -qpl "$rpm_file" | rg -q \
-  '/usr/bin/plank-(host-supervisor|pam-broker)$'; then
+  '/usr/bin/plank-(host-supervisor|pam-broker|gdm-login)$'; then
   echo "host RPM exposes internal service binaries in /usr/bin" >&2
   exit 1
 fi
