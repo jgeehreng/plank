@@ -212,6 +212,26 @@ if [[ $private_qt_runtime == 1 ]]; then
   find "$private_lib_dir/plugins" "$private_lib_dir/qml" \
     \( -name '*.a' -o -name '*.o' -o -name '*.prl' \) -delete
   find "$private_lib_dir/qml" -depth -type d -name 'objects-*' -exec rm -rf {} +
+  # Qt's plugins and QML modules carry RUNPATHs such as $ORIGIN/../../lib that
+  # assume Qt's install layout. The package flattens Qt's lib directory into
+  # $private_lib_dir, so point each one back at that directory instead.
+  while IFS= read -r -d '' qt_module; do
+    readelf -h "$qt_module" >/dev/null 2>&1 || continue
+    qt_module_rel=$(realpath --relative-to="$(dirname -- "$qt_module")" "$private_lib_dir")
+    patchelf --set-rpath "\$ORIGIN/${qt_module_rel}" "$qt_module"
+  done < <(find "$private_lib_dir/plugins" "$private_lib_dir/qml" -type f -name '*.so' -print0)
+  qt_module_failures=0
+  while IFS= read -r -d '' qt_module; do
+    readelf -h "$qt_module" >/dev/null 2>&1 || continue
+    while IFS= read -r missing_soname; do
+      [[ -e $private_lib_dir/$missing_soname ]] || continue
+      echo "${qt_module#"$private_lib_dir"/} does not resolve private ${missing_soname}" >&2
+      qt_module_failures=1
+    done < <(env -u LD_LIBRARY_PATH ldd "$qt_module" 2>/dev/null |
+      awk '$2 == "=>" && $3 == "not" {print $1}')
+  done < <(find "$private_lib_dir/plugins" "$private_lib_dir/qml" -type f -name '*.so' -print0)
+  [[ $qt_module_failures == 0 ]] || exit 1
+  echo "client_qt_module_runpath_gate=pass"
 fi
 cmp --silent "$moonlight_source_dir/app/res/plank-logo.png" \
   "$stage_dir/usr/share/icons/hicolor/512x512/apps/plank-client.png" || {
