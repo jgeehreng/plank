@@ -37,8 +37,10 @@ source "${repo_dir}/scripts/package/package-version.sh"
 plank_load_package_version "$repo_dir"
 package_version=$PLANK_PACKAGE_VERSION
 client_deb_distro=${PLANK_CLIENT_DEB_DISTRO:-ubuntu-26.04}
+private_qt_runtime=0
 case $client_deb_distro in
-  ubuntu-26.04|ubuntu-24.04) ;;
+  ubuntu-26.04) ;;
+  ubuntu-24.04) private_qt_runtime=1 ;;
   *)
     echo "unsupported client DEB distro: ${client_deb_distro}" >&2
     exit 2
@@ -168,35 +170,68 @@ if [[ -n ${PLANK_CLIENT_PRIVATE_LIB_DIR:-} ]]; then
     echo "private client library directory is unavailable: ${PLANK_CLIENT_PRIVATE_LIB_DIR}" >&2
     exit 1
   }
-  find "$PLANK_CLIENT_PRIVATE_LIB_DIR" -maxdepth 1 -type f \( -name '*.so' -o -name '*.so.*' \) \
+  # Copy the SONAME symlinks alongside the real files. Dependants such as
+  # libSDL3_ttf record DT_NEEDED on libSDL3.so.0 rather than the versioned file.
+  find "$PLANK_CLIENT_PRIVATE_LIB_DIR" -maxdepth 1 \( -type f -o -type l \) \
+    \( -name '*.so' -o -name '*.so.*' \) \
     -exec cp -a {} "$private_lib_dir/" \;
 fi
-if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+if [[ $private_qt_runtime == 1 ]]; then
   command -v patchelf >/dev/null || {
     echo "required command is unavailable: patchelf" >&2
     exit 1
   }
   qt_runtime_root=${PLANK_CLIENT_QT_RUNTIME:-}
   [[ -n $qt_runtime_root && -d $qt_runtime_root/lib && -f $qt_runtime_root/plugins/platforms/libqwayland.so ]] || {
-    echo "Ubuntu 24.04 client DEB requires PLANK_CLIENT_QT_RUNTIME with pinned Qt 6.10.2 and its Wayland plugin" >&2
+    echo "${client_deb_distro} client DEB requires PLANK_CLIENT_QT_RUNTIME with pinned Qt 6.10.2 and its Wayland plugin" >&2
     exit 1
   }
   mkdir -p "$private_lib_dir/plugins" "$private_lib_dir/qml"
-  find "$qt_runtime_root/lib" -maxdepth 1 -type f \( -name 'libQt6*.so' -o -name 'libQt6*.so.*' \) \
+  [[ -e $qt_runtime_root/lib/libicui18n.so.73 ]] || {
+    echo "${client_deb_distro} client DEB requires the ICU 73 libraries shipped with pinned Qt" >&2
+    exit 1
+  }
+  # plank-client.bin resolves Qt through $ORIGIN alone, so the SONAME symlinks
+  # must ship beside the versioned files. Qt's own test modules and QML language
+  # server are build tooling from the pinned archives; the client never loads
+  # them.
+  find "$qt_runtime_root/lib" -maxdepth 1 \( -type f -o -type l \) \
+    \( -name 'libQt6*.so' -o -name 'libQt6*.so.*' \) \
+    ! -name 'libQt6Test.so*' ! -name 'libQt6QuickTest.so*' \
+    -exec cp -a {} "$private_lib_dir/" \;
+  find "$qt_runtime_root/lib" -maxdepth 1 \( -type f -o -type l \) -name 'libicu*.so*' \
     -exec cp -a {} "$private_lib_dir/" \;
   cp -a "$qt_runtime_root/plugins/." "$private_lib_dir/plugins/"
+  rm -rf "$private_lib_dir/plugins/qmlls"
   if [[ -d $qt_runtime_root/qml ]]; then
     cp -a "$qt_runtime_root/qml/." "$private_lib_dir/qml/"
+    rm -rf "$private_lib_dir/qml/Qt/test" "$private_lib_dir/qml/QtTest"
   fi
+  # Some pinned Qt QML modules ship static link artifacts. They are link inputs
+  # that the runtime never opens, and they carry Qt's own build paths.
+  find "$private_lib_dir/plugins" "$private_lib_dir/qml" \
+    \( -name '*.a' -o -name '*.o' -o -name '*.prl' \) -delete
+  find "$private_lib_dir/qml" -depth -type d -name 'objects-*' -exec rm -rf {} +
 fi
 cmp --silent "$moonlight_source_dir/app/res/plank-logo.png" \
   "$stage_dir/usr/share/icons/hicolor/512x512/apps/plank-client.png" || {
   echo "packaged client logo differs from the approved runtime source" >&2
   exit 1
 }
+# The private-Qt packages reach their plugins and QML imports through the
+# launcher environment, so exercise the staged payload the way the installed
+# wrapper runs it rather than bare.
+version_env=()
+if [[ $private_qt_runtime == 1 ]]; then
+  version_env=(
+    "QT_PLUGIN_PATH=${private_lib_dir}/plugins"
+    "QML2_IMPORT_PATH=${private_lib_dir}/qml"
+    "QML_IMPORT_PATH=${private_lib_dir}/qml"
+  )
+fi
 version_output=$(
   QT_QPA_PLATFORM=offscreen \
-    env -u LD_LIBRARY_PATH \
+    env -u LD_LIBRARY_PATH "${version_env[@]}" \
     "$stage_dir/usr/bin/plank-client" --version 2>&1
 )
 grep -Fxq "PLANK ${package_version}" <<<"$version_output" || {
@@ -223,7 +258,7 @@ libavutil 61 plank-client
 libswscale 10 plank-client
 libswresample 7 plank-client
 EOF
-if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+if [[ $private_qt_runtime == 1 ]]; then
   while IFS= read -r library; do
     soname=$(readelf -d "$library" 2>/dev/null | awk -F'[][]' '/SONAME/ {print $2; exit}')
     [[ -n $soname && $soname == *.so.* ]] || continue
@@ -235,7 +270,7 @@ fi
 (
   cd "$work_dir"
   mapfile -d '' packaged_elfs < <(
-    if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+    if [[ $private_qt_runtime == 1 ]]; then
       find debian/plank-client/usr/bin -maxdepth 1 -type f -print0
       find debian/plank-client/usr/lib/plank -maxdepth 1 -type f \
         \( -name '*.so' -o -name '*.so.*' -o -name 'plank-client.bin' \) -print0
@@ -265,12 +300,13 @@ Packaged binary SHA-256: $(sha256sum "$stage_dir/usr/bin/plank-client" | awk '{p
 EOF
 installed_size=$(du -sk "$stage_dir/usr" | awk '{print $1}')
 control_template="$repo_dir/packaging/client/linux/deb/control.in"
-if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+if [[ $private_qt_runtime == 1 ]]; then
   control_template="$repo_dir/packaging/client/linux/deb/control-ubuntu-24.04.in"
+  client_wrapper="$repo_dir/packaging/client/linux/bin/plank-client-ubuntu-24"
   install -D -m 0755 "$stage_dir/usr/bin/plank-client" \
     "$private_lib_dir/plank-client.bin"
   patchelf --set-rpath '$ORIGIN' "$private_lib_dir/plank-client.bin"
-  install -D -m 0755 "$repo_dir/packaging/client/linux/bin/plank-client-ubuntu-24" \
+  install -D -m 0755 "$client_wrapper" \
     "$stage_dir/usr/bin/plank-client"
   installed_size=$(du -sk "$stage_dir/usr" | awk '{print $1}')
 fi
@@ -297,7 +333,11 @@ dpkg-deb --root-owner-group --uniform-compression -Zxz --build "$stage_dir" "$de
 
 dpkg-deb --info "$deb_file" >/dev/null
 dpkg-deb --contents "$deb_file" >/dev/null
-if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+# Read the archive listing once. Piping dpkg-deb into grep -q leaves the listing
+# subprocess writing into a closed pipe as soon as the match is found, and
+# pipefail then reports the successful check as a failure.
+package_manifest=$(dpkg-deb --contents "$deb_file")
+if [[ $private_qt_runtime == 1 ]]; then
   for required_package in libdecor-0-plugin-1-cairo udev; do
     dpkg-deb --field "$deb_file" Depends | grep -Fq "$required_package" || {
       echo "client DEB is missing required dependency: ${required_package}" >&2
@@ -305,11 +345,12 @@ if [[ $client_deb_distro == ubuntu-24.04 ]]; then
     }
   done
   dpkg-deb --field "$deb_file" Recommends | grep -Fq 'intel-media-va-driver-non-free' || {
-    echo "Ubuntu 24.04 client DEB is missing intel-media-va-driver-non-free Recommends" >&2
+    echo "${client_deb_distro} client DEB is missing intel-media-va-driver-non-free Recommends" >&2
     exit 1
   }
-  dpkg-deb --contents "$deb_file" | grep -Fq './usr/lib/plank/plugins/platforms/libqwayland.so' || {
-    echo "Ubuntu 24.04 client DEB is missing the private Qt Wayland plugin" >&2
+  grep -Fq './usr/lib/plank/plugins/platforms/libqwayland.so' \
+    <<<"$package_manifest" || {
+    echo "${client_deb_distro} client DEB is missing the private Qt Wayland plugin" >&2
     exit 1
   }
 else
@@ -327,7 +368,6 @@ else
     }
   done
 fi
-package_manifest=$(dpkg-deb --contents "$deb_file")
 grep -Eq '^-rw-r--r-- root/root +[0-9]+ .*\./etc/plank/client\.conf$' \
   <<<"$package_manifest" || {
   echo "client administrator policy does not have root-owned mode 0644" >&2
@@ -449,7 +489,7 @@ fi
 rm -rf -- "$control_audit_dir"
 client_runtime_binary=$stage_dir/usr/bin/plank-client
 client_runpath_origin='$ORIGIN/../lib/plank'
-if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+if [[ $private_qt_runtime == 1 ]]; then
   client_runtime_binary=$private_lib_dir/plank-client.bin
   client_runpath_origin='$ORIGIN'
 fi
@@ -473,9 +513,9 @@ for soname in libavcodec.so.63 libavutil.so.61 libswscale.so.10 libswresample.so
     }
 done
 echo "client_private_runpath_gate=pass"
-if [[ $client_deb_distro == ubuntu-24.04 ]]; then
+if [[ $private_qt_runtime == 1 ]]; then
   if dpkg-deb --field "$deb_file" Depends | rg -q 'libqt6core6|qml6-module-qtquick'; then
-    echo "Ubuntu 24.04 client DEB still depends on distro Qt 6 modules" >&2
+    echo "${client_deb_distro} client DEB still depends on distro Qt 6 modules" >&2
     exit 1
   fi
 else

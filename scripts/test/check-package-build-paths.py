@@ -6,14 +6,20 @@ import re
 
 # Includes C strings and DWARF, independent of executable format or stripping.
 HOME_PATH = re.compile(rb'/(?:home|Users)/[^/\x00\s]+/')
-# Reviewed literals in the pinned official Qt 6.10.2 macOS archives, not PLANK
-# operator paths. Restrict to exact strings in the exact framework payloads.
+# Reviewed literals in the pinned official Qt 6.10.2 archives, not PLANK
+# operator paths. Restrict to exact strings in the exact library payloads. The
+# Linux gcc_64 archives carry the same literals under Qt's own build account.
 UPSTREAM_QT_PATHS = {
     '/Contents/Frameworks/QtQuick.framework/Versions/A/QtQuick': (
         b'/Users/qt/work/qt/qtdeclarative/src/quick/designer/qquickdesignersupport.cpp',),
     '/Contents/Frameworks/QtWidgets.framework/Versions/A/QtWidgets': (
         b'/Users/qt/work/qt/qtbase/src/widgets/widgets/qdatetimeedit.cpp',
         b'/Users/qt/work/qt/qtbase/src/widgets/widgets/qabstractspinbox.cpp'),
+    '/usr/lib/plank/libQt6Quick.so.6.10.2': (
+        b'/home/qt/work/qt/qtdeclarative/src/quick/designer/qquickdesignersupport.cpp',),
+    '/usr/lib/plank/libQt6Widgets.so.6.10.2': (
+        b'/home/qt/work/qt/qtbase/src/widgets/widgets/qdatetimeedit.cpp',
+        b'/home/qt/work/qt/qtbase/src/widgets/widgets/qabstractspinbox.cpp'),
 }
 
 

@@ -45,14 +45,24 @@ case "$role:$ID:$VERSION_ID" in
     ;;
   client:ubuntu:24.04)
     sudo apt-get update
+    # Ubuntu 24.04 ships libplacebo 6.338, which predates
+    # pl_gpu_limits.host_ptr_slow. The builder compiles the pinned libplacebo
+    # from source instead, so install its build inputs rather than
+    # libplacebo-dev.
     sudo apt-get install -y --no-install-recommends \
-      build-essential cmake curl git make nasm ninja-build openssl patch \
-      pkg-config python3 python3-venv python3-pip ripgrep xz-utils dpkg-dev \
-      file libdecor-0-dev libdrm-dev libegl1-mesa-dev libgl1-mesa-dev \
+      build-essential cmake curl git make meson nasm ninja-build openssl patch \
+      pkg-config python3 python3-venv python3-pip python3-jinja2 ripgrep xz-utils dpkg-dev \
+      file libdecor-0-dev libdrm-dev libegl1-mesa-dev libgles2-mesa-dev libgl1-mesa-dev \
       libinput-dev libfreetype6-dev libopus-dev libpipewire-0.3-dev \
-      libplacebo-dev libssl-dev libudev-dev libva-dev libvdpau-dev \
-      libwayland-dev libx11-dev libxext-dev libxi-dev libxkbcommon-dev \
+      libshaderc-dev libvulkan-dev libssl-dev libudev-dev libva-dev libvdpau-dev \
+      libwayland-dev libx11-dev libxext-dev libxcursor-dev libxfixes-dev \
+      libxi-dev libxrandr-dev libxss-dev libxtst-dev libxkbcommon-dev \
       libasound2-dev zlib1g-dev patchelf binutils
+    if dpkg-query -W --showformat='${Status}' libplacebo-dev 2>/dev/null |
+        grep -q 'install ok installed'; then
+      echo "libplacebo-dev is installed; Ubuntu 24.04 must use the pinned libplacebo built by the client builder" >&2
+      exit 1
+    fi
     dpkg-query -W
     ;;
   *) echo 'Unsupported CI product/OS tuple' >&2; exit 2 ;;

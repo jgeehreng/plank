@@ -135,9 +135,13 @@ dpkg-deb --contents "$PLANK_CLIENT_DEB"
 Ubuntu 24.04 cannot install that DEB. Build it on an Ubuntu 24.04 x86_64
 machine with `scripts/package/build-ubuntu-24-client.sh`. That package
 carries Qt 6.10.2, including the Wayland platform plugin, SDL3, and the
-same private FFmpeg 9.0.1. It is not a qualified client until it is
-installed on a clean Ubuntu 24.04 desktop and passes the same video,
-audio, and input checks as the Ubuntu 26.04 client.
+same private FFmpeg 9.0.1, plus the ICU 73 libraries published with that
+Qt build because Ubuntu 24.04 ships ICU 74. Ubuntu 24.04's libplacebo
+6.338 cannot build the Vulkan renderer, so the builder compiles pinned
+libplacebo 7.360.1 and stops if the distribution development package is
+installed. It is not a qualified client until it is installed on a clean
+Ubuntu 24.04 desktop and passes the same video, audio, and input checks
+as the Ubuntu 26.04 client.
 
 The client is an interactive application and deliberately ships no systemd
 user service or desktop autostart entry. Launch it from the PLANK

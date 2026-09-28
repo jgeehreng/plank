@@ -52,6 +52,37 @@ class ClientSourceGateTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn('legacy packet-size configuration', result.stderr)
 
+    def test_ubuntu_24_client_builds_its_private_runtime(self):
+        deps = (ROOT / 'scripts/ci/install-linux-deps.sh').read_text()
+        noble = deps.split('client:ubuntu:24.04)', 1)[1].split('*)', 1)[0]
+        # Ubuntu 24.04's libplacebo 6.338 predates pl_gpu_limits.host_ptr_slow.
+        install = noble.split('apt-get install', 1)[1].split('if dpkg-query', 1)[0]
+        self.assertNotIn('libplacebo-dev', install)
+        self.assertIn('libplacebo-dev is installed', noble)
+        for package in ('meson', 'libshaderc-dev', 'libvulkan-dev', 'libpipewire-0.3-dev', 'patchelf'):
+            self.assertIn(package, install)
+        deb = (ROOT / 'scripts/package/build-client-deb.sh').read_text()
+        self.assertIn('ubuntu-24.04) private_qt_runtime=1', deb)
+        self.assertIn('control-ubuntu-24.04.in', deb)
+        self.assertIn('libicui18n.so.73', deb)
+        self.assertIn('client_qt_module_runpath_gate=pass', deb)
+        script = (ROOT / 'scripts/package/build-ubuntu-24-client.sh').read_text()
+        self.assertIn('VERSION_ID:-} != 24.04', script)
+        self.assertIn('PLANK_CLIENT_DEB_DISTRO=ubuntu-24.04', script)
+        self.assertIn('libplacebo_version=7.360.1', script)
+        self.assertLess(script.index('libplacebo_commit='), script.index('meson setup'))
+        self.assertLess(script.index('libicui18n.so.73'), script.index('qmake" -query QT_VERSION'))
+        self.assertIn('pkg-config --exists sdl3 sdl3-ttf Qt6Gui libplacebo', script)
+        binaries = (ROOT / 'scripts/build/build-client-package-binaries.sh').read_text()
+        self.assertIn(
+            'PKG_CONFIG_PATH="${ffmpeg_prefix}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"',
+            binaries)
+        self.assertLess(script.index('rm -rf "$client_build"'), script.index('build-client-package-binaries.sh'))
+        # The client project builds the transport crate with --offline.
+        self.assertLess(
+            script.index('scripts/ci/dependencies/cargo.sh" linux-client'),
+            script.index('build-client-package-binaries.sh'))
+
 
 if __name__ == '__main__':
     unittest.main()

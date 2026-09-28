@@ -14,6 +14,10 @@ sdl3_version=3.4.2
 sdl3_sha256=ef39a2e3f9a8a78296c40da701967dd1b0d0d6e267e483863ce70f8a03b4050c
 sdl3_ttf_version=3.2.2
 sdl3_ttf_sha256=63547d58d0185c833213885b635a2c0548201cc8f301e6587c0be1a67e1e045d
+# pl_gpu_limits.host_ptr_slow, which the Vulkan renderer reads, first shipped
+# in libplacebo 7.360.0. Ubuntu 24.04 only packages 6.338.
+libplacebo_version=7.360.1
+libplacebo_commit=cee9b076f2c63104ccfd497fa79c39a867293ec4
 
 if [[ ! -f /etc/os-release ]]; then
   echo "Ubuntu 24.04 builder must run on Linux" >&2
@@ -42,13 +46,25 @@ bash "$repo_dir/scripts/ci/install-linux-deps.sh" client
 
 qt_root="$dep_root/qt/$qt_version/gcc_64"
 wayland_plugin="$qt_root/plugins/platforms/libqwayland.so"
-if [[ ! -x $qt_root/bin/qmake || ! -f $wayland_plugin ]]; then
+icu_lib="$qt_root/lib/libicui18n.so.73"
+if [[ ! -x $qt_root/bin/qmake || ! -f $wayland_plugin || ! -e $icu_lib ]]; then
   python3 -m venv "$dep_root/aqt"
   "$dep_root/aqt/bin/pip" install aqtinstall==3.3.0
+  # Qt 6.10.2's linux_gcc_64 tools are linked to ICU 73. Ubuntu 24.04 ships
+  # ICU 74, so the ICU archive that Qt publishes must be installed beside qmake.
+  qt_archives=(qtbase qtdeclarative qtsvg qttools qtshadertools qtwayland icu)
+  if [[ -x $qt_root/bin/qmake && -f $wayland_plugin ]]; then
+    qt_archives=(icu)
+  fi
   "$dep_root/aqt/bin/aqt" install-qt linux desktop "$qt_version" linux_gcc_64 \
     --outputdir "$dep_root/qt" \
-    --archives qtbase qtdeclarative qtsvg qttools qtshadertools qtwayland
+    --archives "${qt_archives[@]}"
 fi
+[[ -e $icu_lib ]] || {
+  echo "pinned Qt ${qt_version} is missing ICU 73 (${icu_lib}); remove ${dep_root}/qt and rerun" >&2
+  exit 1
+}
+export LD_LIBRARY_PATH="$qt_root/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 test "$("$qt_root/bin/qmake" -query QT_VERSION)" = "$qt_version"
 if [[ ! -f $wayland_plugin ]]; then
   echo "pinned Qt ${qt_version} is missing the Wayland platform plugin; remove ${dep_root}/qt and rerun" >&2
@@ -102,10 +118,38 @@ if [[ ! -f $dep_root/prefix/lib/libSDL3_ttf.so ]]; then
     -DSDLTTF_HARFBUZZ=OFF -DSDLTTF_SAMPLES=OFF
 fi
 
-export PKG_CONFIG_PATH="$dep_root/prefix/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+if [[ ! -f $dep_root/prefix/lib/libplacebo.so ]]; then
+  libplacebo_source=$dep_root/src/libplacebo-${libplacebo_version}
+  if [[ ! -d $libplacebo_source ]]; then
+    git clone --recurse-submodules --shallow-submodules \
+      https://github.com/haasn/libplacebo.git "$libplacebo_source"
+  fi
+  git -C "$libplacebo_source" fetch --tags origin
+  git -C "$libplacebo_source" checkout --force "$libplacebo_commit"
+  git -C "$libplacebo_source" submodule update --init --recursive
+  test "$(git -C "$libplacebo_source" rev-parse HEAD)" = "$libplacebo_commit"
+  rm -rf "$work_root/libplacebo"
+  # The Vulkan renderer is the only libplacebo consumer, so the OpenGL and
+  # D3D11 backends and the Nuklear-based demos stay out of this build.
+  meson setup "$work_root/libplacebo" "$libplacebo_source" \
+    --prefix "$dep_root/prefix" \
+    --libdir lib \
+    --buildtype release \
+    -Dvulkan=enabled \
+    -Dshaderc=enabled \
+    -Dopengl=disabled \
+    -Dd3d11=disabled \
+    -Ddemos=false \
+    -Dtests=false
+  meson compile -C "$work_root/libplacebo" -j "$jobs"
+  meson install -C "$work_root/libplacebo"
+fi
+
+export PKG_CONFIG_PATH="$qt_root/lib/pkgconfig:$dep_root/prefix/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export PATH="$qt_root/bin:$dep_root/prefix/bin:$PATH"
-pkg-config --exists sdl3 sdl3-ttf
+pkg-config --exists sdl3 sdl3-ttf Qt6Gui libplacebo
 test "$(pkg-config --modversion sdl3)" = "$sdl3_version"
+test "$(pkg-config --modversion libplacebo)" = "$libplacebo_version"
 
 if [[ ! -x $CARGO_HOME/bin/rustc ]]; then
   installer="$dep_root/rustup-bootstrap"
@@ -121,6 +165,9 @@ if [[ ! -x $CARGO_HOME/bin/rustc ]]; then
   RUSTUP_INIT_SKIP_PATH_CHECK=yes "$installer/rustup-init" -y --no-modify-path \
     --profile minimal --default-toolchain 1.89.0
 fi
+# The client project builds the transport crate with --offline, so the locked
+# sources must already be in this builder's Cargo home.
+bash "$repo_dir/scripts/ci/dependencies/cargo.sh" linux-client x86_64-unknown-linux-gnu
 if [[ ! -f $dep_root/client-ffmpeg/install/lib/libavcodec.so ]]; then
   bash "$repo_dir/scripts/build/build-client-ffmpeg.sh" \
     "$work_root/ffmpeg-stage" "$dep_root/client-ffmpeg"
@@ -128,6 +175,7 @@ fi
 
 ffmpeg_work=${PLANK_CLIENT_FFMPEG_WORK:-$dep_root/client-ffmpeg}
 client_build=$work_root/package-client
+rm -rf "$client_build"
 bash "$repo_dir/scripts/build/build-client-package-binaries.sh" \
   "$repo_dir/apps/client" "$ffmpeg_work" "$client_build"
 

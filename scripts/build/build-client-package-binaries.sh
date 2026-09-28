@@ -1733,7 +1733,7 @@ cleanup_bookmark_test
 trap - EXIT
 echo "client_host_aware_bookmark_test=pass"
 
-export PKG_CONFIG_PATH="${ffmpeg_prefix}/lib/pkgconfig"
+export PKG_CONFIG_PATH="${ffmpeg_prefix}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 export LD_LIBRARY_PATH="${ffmpeg_prefix}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 [[ $(pkg-config --modversion libavcodec) == 63.* ]] || {
   echo "FFmpeg 9 libavcodec pkg-config metadata was not selected" >&2
