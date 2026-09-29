@@ -15,12 +15,12 @@ import subprocess
 # share an install prefix; separate caches must never restore overlapping paths.
 COMPONENTS = {
     'linux-host': ('rust', 'cargo', 'ffmpeg', 'boost'),
-    'linux-client': ('rust', 'cargo', 'ffmpeg'),
+    'linux-client': ('rust', 'cargo', 'ffmpeg', 'sdl3', 'qt'),
     'macos-host': ('rust', 'cargo'),
     'macos-client': ('rust', 'cargo', 'native', 'qt'),
 }
 PRODUCTS = tuple(COMPONENTS)
-ALL_COMPONENTS = ('rust', 'cargo', 'ffmpeg', 'boost', 'native', 'qt')
+ALL_COMPONENTS = ('rust', 'cargo', 'ffmpeg', 'boost', 'native', 'qt', 'sdl3')
 HOST_DEPS = 'apps/host/linux/third-party/build-deps'
 CLIENT_PATCHES = 'apps/client/app/deploy/linux/ffmpeg-patches'
 IDENTITY_PATCH = CLIENT_PATCHES + '/0001-hevc-enable-hwaccel-for-identity-gbr.patch'
@@ -46,8 +46,12 @@ def dependency_inputs(root, product, component):
                           'third_party/quinn-proto-0.11.17/Cargo.lock'))
     elif component == 'boost':
         paths.add(RECIPES + 'boost.sh')
+    elif component == 'qt' and product == 'linux-client':
+        paths.add(RECIPES + 'linux-qt.sh')
     elif component == 'qt':
         paths.update((RECIPES + 'qt.sh', 'scripts/build/macos-client-target.sh'))
+    elif component == 'sdl3':
+        paths.add(RECIPES + 'sdl3.sh')
     elif component == 'native':
         paths.update((RECIPES + 'macos-libraries.sh',
                       'scripts/build/bootstrap-macos-client-deps.sh',
@@ -85,14 +89,14 @@ def fingerprint(root, deps, product, component, toolchain):
     # Rust downloads and Boost sources do not depend on the C/C++ compiler,
     # installed Qt, CUDA or SDK. Compiled libraries still match those exactly.
     tools = {'platform': toolchain['platform']}
-    if component in ('ffmpeg', 'native'):
+    if component in ('ffmpeg', 'native', 'sdl3'):
         tools['compiled'] = toolchain['compiled']
     if component == 'cargo':
         tools['rust'] = fingerprint(root, deps, product, 'rust', toolchain)
     data = {'schema': 2, 'product': product, 'component': component,
             'inputs': hashes, 'pins': pins, 'source_root': str(root),
             'dependency_root': str(deps), 'toolchain': tools}
-    if component in ('native', 'qt'):
+    if component in ('native', 'qt') and product.startswith('macos-'):
         target = os.environ.get('PLANK_MAC_CLIENT_MIN_MACOS') or '15.0'
         if target != '15.0':
             raise ValueError('PLANK Client deployment target must be 15.0')
@@ -113,8 +117,12 @@ def cache_paths(root, deps, product, component):
                  'cargo/registry/src', 'cargo/git/db', 'cargo/git/checkouts')]
     elif component == 'boost':
         paths = [deps / 'boost-1.89.0']
+    elif component == 'qt' and product == 'linux-client':
+        paths = [deps / 'qt/6.10.2/gcc_64']
     elif component == 'qt':
         paths = [deps / 'qt']
+    elif component == 'sdl3':
+        paths = [deps / 'client-sdl3/install', deps / 'client-sdl3/downloads']
     elif component == 'native':
         paths = [deps / 'macos-client' / name for name in ('install', 'src', 'downloads')]
     elif product == 'linux-host':
@@ -147,7 +155,10 @@ def check_prepared(root, deps, product, component):
         'rust': ['cargo/bin/rustup', 'rustup/settings.toml'],
         'cargo': [],  # Locked fetch always runs; registry/Git sources may be absent.
         'boost': ['boost-1.89.0/CMakeLists.txt'],
-        'qt': ['qt/6.10.2/macos/bin/qmake'],
+        'qt': (['qt/6.10.2/gcc_64/bin/qmake6'] if product == 'linux-client'
+               else ['qt/6.10.2/macos/bin/qmake']),
+        'sdl3': ['client-sdl3/install/lib/pkgconfig/sdl3.pc',
+                 'client-sdl3/install/lib/pkgconfig/SDL3_ttf.pc'],
         'native': ['macos-client/install/lib/' + name + '.dylib' for name in
                    ('libavcodec', 'libavutil', 'libswscale', 'libswresample',
                     'libssl', 'libcrypto', 'libSDL3', 'libSDL3_ttf', 'libopus', 'libfreetype')],
@@ -192,7 +203,7 @@ def toolchain_inputs(product):
                          ['/usr/local/cuda/bin/nvcc', '--version']]
             packages = output(['rpm', '-qa']).splitlines()
         else:
-            commands += [['gcc', '--version'], ['qmake6', '-query', 'QT_VERSION']]
+            commands += [['gcc', '--version']]
             packages = output(['dpkg-query', '-W', '-f=${Package}=${Version}\n']).splitlines()
     return {'platform': identity, 'compiled': {
         'packages': sorted(packages), 'tools': [output(command) for command in commands]}}

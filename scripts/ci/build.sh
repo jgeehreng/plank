@@ -17,6 +17,11 @@ case $role in
     bash "$PLANK_SOURCE_ROOT/scripts/ci/test-linux-host-input.sh" "$PLANK_WORK_ROOT/host-build"
     ;;
   linux-client)
+    export PATH="$PLANK_DEP_ROOT/qt/6.10.2/gcc_64/bin:$PATH"
+    export PKG_CONFIG_PATH="$PLANK_DEP_ROOT/client-sdl3/install/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+    export PLANK_CLIENT_DEB_DISTRO=ubuntu-24.04
+    export PLANK_CLIENT_QT_RUNTIME="$PLANK_DEP_ROOT/qt/6.10.2/gcc_64"
+    export PLANK_CLIENT_PRIVATE_LIB_DIR="$PLANK_DEP_ROOT/client-sdl3/install/lib"
     bash "$PLANK_SOURCE_ROOT/scripts/build/build-client-package-binaries.sh" \
       "$PLANK_SOURCE_ROOT/apps/client" "$PLANK_DEP_ROOT/client-ffmpeg" "$PLANK_WORK_ROOT/client-build"
     bash "$PLANK_SOURCE_ROOT/scripts/package/build-client-deb.sh" \

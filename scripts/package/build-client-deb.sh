@@ -182,7 +182,7 @@ if [[ $private_qt_runtime == 1 ]]; then
     exit 1
   }
   qt_runtime_root=${PLANK_CLIENT_QT_RUNTIME:-}
-  [[ -n $qt_runtime_root && -d $qt_runtime_root/lib && -f $qt_runtime_root/plugins/platforms/libqwayland.so ]] || {
+  [[ -n $qt_runtime_root && -d $qt_runtime_root/lib && -f $qt_runtime_root/plugins/platforms/libqwayland-generic.so ]] || {
     echo "${client_deb_distro} client DEB requires PLANK_CLIENT_QT_RUNTIME with pinned Qt 6.10.2 and its Wayland plugin" >&2
     exit 1
   }
@@ -329,6 +329,10 @@ if [[ $private_qt_runtime == 1 ]]; then
   install -D -m 0755 "$client_wrapper" \
     "$stage_dir/usr/bin/plank-client"
   installed_size=$(du -sk "$stage_dir/usr" | awk '{print $1}')
+  # Strip debug sections from bundled Qt and SDL3 shared libs to remove
+  # build-system absolute paths that would fail the package path audit.
+  find "$private_lib_dir" -maxdepth 1 -name '*.so.*' -type f \
+    -exec strip --strip-debug {} +
 fi
 sed -e "s/@VERSION@/${package_version}/" \
   -e "s/@INSTALLED_SIZE@/${installed_size}/" \

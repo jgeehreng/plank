@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
-root=/usr/lib/plank
+# Resolve relative to this script so the path works both at staging time
+# (when the script sits inside a temporary DEB tree) and when installed.
+root="$(cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)/../lib/plank"
 export QT_PLUGIN_PATH="$root/plugins"
 export QML2_IMPORT_PATH="$root/qml"
 export QML_IMPORT_PATH="$root/qml"

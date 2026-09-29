@@ -29,6 +29,8 @@ case $role in
     ;;
   linux-client)
     bash "$dependency_scripts/client-ffmpeg.sh"
+    bash "$dependency_scripts/sdl3.sh"
+    bash "$dependency_scripts/linux-qt.sh"
     ;;
   macos-*)
     test "$(uname -m)" = arm64

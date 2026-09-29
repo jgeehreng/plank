@@ -102,7 +102,7 @@ jobs:
   linux-client:
     if: ${{ !inputs.product || inputs.product == 'all' || inputs.product == 'linux-client' }}
     needs: policy
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       PLANK_BUILD_JOBS: '4'
