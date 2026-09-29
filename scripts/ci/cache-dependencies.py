@@ -231,12 +231,22 @@ def prepare_sources(root, product):
         gitlink_sha = subprocess.run(
             ['git', '-C', str(root), 'ls-tree', 'HEAD', 'apps/client'],
             capture_output=True, text=True, check=True).stdout.split()[2]
-        # Clone with --no-single-branch so all fork branches land in the local
-        # object store.  GitHub refuses direct SHA fetch for commits only
-        # reachable from a fork branch (not the upstream fork network).
-        # Checking out the gitlink SHA directly in the standalone clone (before
-        # absorbgitdirs) avoids git submodule update's own fetch step, which
-        # would try the same blocked direct-SHA fetch and fail.
+        # If apps/client already exists at the right commit (e.g. the restore
+        # step already set it up in the same job), skip re-cloning.  Re-cloning
+        # without --recursive would destroy the nested submodules.
+        if client_dir.is_dir():
+            current_sha = subprocess.run(
+                ['git', '-C', str(client_dir), 'rev-parse', 'HEAD'],
+                capture_output=True, text=True).stdout.strip()
+            if current_sha == gitlink_sha:
+                return  # already correct
+            subprocess.run(['git', '-C', str(client_dir), 'checkout',
+                            '--detach', gitlink_sha], check=True)
+            subprocess.run(['git', '-C', str(client_dir), 'submodule',
+                            'update', '--init', '--recursive'], check=True)
+            return
+        # Fresh clone needed.  Fetch all branches so the gitlink SHA is
+        # reachable even when it lives on a non-default fork branch.
         # If the build branch does not exist in the client repo at all, fall
         # back to the standard SHA path (commit must then be reachable from
         # upstream).
@@ -262,6 +272,8 @@ def prepare_sources(root, product):
             shutil.rmtree(str(client_dir), ignore_errors=True)
             subprocess.run(['git'] + git_auth + ['-C', str(root), 'submodule', 'update',
                             '--init', 'apps/client'], check=True)
+            subprocess.run(['git', '-C', str(client_dir), 'submodule', 'update',
+                            '--init', '--recursive'], check=True)
 
 
 def hits_path(deps, product):
