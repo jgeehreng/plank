@@ -18,8 +18,8 @@ class ProductDependencyCacheTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name) / 'source'
-        self.deps = Path(self.tmp.name) / 'deps'
+        self.root = (Path(self.tmp.name) / 'source').resolve()
+        self.deps = (Path(self.tmp.name) / 'deps').resolve()
         self.tools = {'platform': {'architecture': 'fixture', 'os': 'fixture'},
                       'compiled': {'sdk': 'fixture', 'packages': ['lib=1']}}
         inputs = (
@@ -121,7 +121,7 @@ class ProductDependencyCacheTests(unittest.TestCase):
         after = self.keys()
         self.assertEqual({pair for pair in before if before[pair] != after[pair]},
                          {('linux-host', 'ffmpeg'), ('linux-client', 'ffmpeg'),
-                          ('macos-client', 'native')})
+                          ('linux-client', 'sdl3'), ('macos-client', 'native')})
 
     def test_product_platform_and_absolute_paths_are_exact(self):
         keys = self.keys()
@@ -258,7 +258,10 @@ class ProductDependencyCacheTests(unittest.TestCase):
         for name in ('cargo/bin/rustup', 'rustup/settings.toml',
                      'client-ffmpeg/ffmpeg-9.0.1.tar.xz',
                      *(f'client-ffmpeg/install/lib/{name}.so' for name in
-                       ('libavcodec', 'libavutil', 'libswscale', 'libswresample'))):
+                       ('libavcodec', 'libavutil', 'libswscale', 'libswresample')),
+                     'client-sdl3/install/lib/pkgconfig/sdl3.pc',
+                     'client-sdl3/install/lib/pkgconfig/SDL3_ttf.pc',
+                     'qt/6.10.2/gcc_64/bin/qmake6'):
             self.write(self.deps / name, 'fixture')
         invoke('seal')
         invoke('verify', {'CACHE_MATCHED_RUST': self.key(product, 'rust'),
