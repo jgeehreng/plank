@@ -104,14 +104,14 @@ def main():
                         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
                         if self.path == "/plank/auth/start":
                             requests.append("auth")
-                            if body != {"username": "synthetic"}:
+                            if body != {"username": "synthetic", "start_desktop": True}:
                                 faults.append("invalid authentication start")
                             if mode == "auth-mid-change":
                                 context.load_cert_chain(root / "cert2.pem", root / "key2.pem")
                             self.respond(200, b'{"state":"challenge","conversation_id":"fixture","messages":[{"style":1}]}')
                         elif self.path == "/plank/auth/respond":
                             requests.append("password")
-                            if body != {"conversation_id": "fixture", "responses": ["fixture-password"]}:
+                            if body != {"conversation_id": "fixture", "responses": ["fixture-password"], "start_desktop": True}:
                                 faults.append("invalid authentication response")
                             self.respond(200, json.dumps({"state": "authenticated", "session_token": token}).encode())
                         else:

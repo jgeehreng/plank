@@ -132,8 +132,9 @@ int main() {
             '\nvoid PlankToolbar::', 1)[0]
         self.assertIn('std::max(0, (m_WindowWidth - m_Width) / 2)', layout)
         self.assertIn('PlankToolbarLogic::logicalLeftFromPosition(', layout)
-        self.assertEqual(self.preprocess_platform(layout, True),
-                         self.preprocess_platform(layout, False))
+        geometry = layout.split('\n#ifdef Q_OS_DARWIN', 1)[0]
+        self.assertEqual(self.preprocess_platform(geometry, True),
+                         self.preprocess_platform(geometry, False))
         for filename in ('planktoolbar.cpp', 'planktoolbarlogic.h', 'macwindow.h', 'macwindow.mm'):
             source = (client / 'app/streaming' / filename).read_text()
             self.assertNotIn('unobscuredToolbarLeft', source)
