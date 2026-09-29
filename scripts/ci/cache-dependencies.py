@@ -250,6 +250,12 @@ def prepare_sources(root, product):
             # directory is still a regular directory and not a worktree link.
             subprocess.run(['git', '-C', str(client_dir), 'checkout',
                             '--detach', gitlink_sha], check=True)
+            # Initialize the client's own nested submodules (moonlight-common-c,
+            # qmdnsengine) while .git is still a standalone directory.
+            # absorbgitdirs will move everything — gitdir, module stores, and
+            # all nested module references — in a single pass afterward.
+            subprocess.run(['git', '-C', str(client_dir), 'submodule', 'update',
+                            '--init', '--recursive'], check=True)
             # Wire the submodule gitdir into the parent's .git/modules tree.
             subprocess.run(['git', '-C', str(root), 'submodule', 'absorbgitdirs'], check=True)
         else:
