@@ -211,10 +211,20 @@ def prepare_sources(root, product):
                         '--init', '--recursive', 'third-party/build-deps'], check=True)
     elif product.endswith('-client'):
         build_branch = os.environ.get('PLANK_BUILD_BRANCH', 'main')
-        # Register the submodule URL so we can read it back.
         subprocess.run(['git', '-C', str(root), 'submodule', 'init', 'apps/client'], check=True)
+        # Read the URL from .gitmodules by path; after init the config key uses
+        # the submodule section name, not the path, so query .gitmodules directly.
+        paths_out = subprocess.run(
+            ['git', 'config', '-f', str(root / '.gitmodules'), '--get-regexp',
+             r'submodule\..*\.path'],
+            capture_output=True, text=True, check=True).stdout
+        client_section = next(
+            line.split()[0].rsplit('.', 1)[0]
+            for line in paths_out.splitlines()
+            if line.split(None, 1)[1] == 'apps/client')
         client_url = subprocess.run(
-            ['git', '-C', str(root), 'config', '--get', 'submodule.apps/client.url'],
+            ['git', 'config', '-f', str(root / '.gitmodules'), '--get',
+             f'{client_section}.url'],
             capture_output=True, text=True, check=True).stdout.strip()
         client_dir = root / 'apps/client'
         # Clone by branch name so fork-only commits land in the local object
