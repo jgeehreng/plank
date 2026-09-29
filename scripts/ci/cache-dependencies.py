@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exact, independent dependency caches; never application or signing state."""
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -197,13 +198,19 @@ def toolchain_inputs(product):
 
 
 def prepare_sources(root, product):
+    token = os.environ.get('GITHUB_TOKEN', '')
+    git_auth = (['-c', 'http.https://github.com/.extraheader=AUTHORIZATION: basic ' +
+                 base64.b64encode(f'x-access-token:{token}'.encode()).decode()]
+                if token else [])
     if product == 'linux-host':
-        subprocess.run(['git', '-C', str(root), 'submodule', 'update', '--init', 'apps/host/linux'], check=True)
+        subprocess.run(['git'] + git_auth + ['-C', str(root), 'submodule', 'update',
+                        '--init', 'apps/host/linux'], check=True)
         # Restored build trees contain relative .git pointers to these sources.
         subprocess.run(['git', '-C', str(root / 'apps/host/linux'), 'submodule', 'update',
                         '--init', '--recursive', 'third-party/build-deps'], check=True)
     elif product.endswith('-client'):
-        subprocess.run(['git', '-C', str(root), 'submodule', 'update', '--init', 'apps/client'], check=True)
+        subprocess.run(['git'] + git_auth + ['-C', str(root), 'submodule', 'update',
+                        '--init', 'apps/client'], check=True)
 
 
 def hits_path(deps, product):
