@@ -10,5 +10,9 @@ if [[ ! -x "$qt_root/bin/qmake6" || ! -f "$qt_root/plugins/platforms/libqwayland
     --outputdir "$PLANK_DEP_ROOT/qt" \
     --archives qtbase qtdeclarative qtsvg qttools qtshadertools qtwayland qtimageformats
 fi
+# The aqtinstall Qt 6.10.2 Linux binaries bundle ICU 73 in the Qt lib
+# directory.  Ubuntu 24.04 ships ICU 74, so we must point qmake6 at its
+# own bundled ICU before running it here and during the build step.
+export LD_LIBRARY_PATH="$qt_root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 test "$("$qt_root/bin/qmake6" -query QT_VERSION)" = '6.10.2'
 test -f "$qt_root/plugins/platforms/libqwayland-generic.so"
