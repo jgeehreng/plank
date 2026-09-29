@@ -227,23 +227,31 @@ def prepare_sources(root, product):
              f'{client_section}.url'],
             capture_output=True, text=True, check=True).stdout.strip()
         client_dir = root / 'apps/client'
+        # Read the exact gitlink SHA that the source tree requires.
+        gitlink_sha = subprocess.run(
+            ['git', '-C', str(root), 'ls-tree', 'HEAD', 'apps/client'],
+            capture_output=True, text=True, check=True).stdout.split()[2]
         # Clone with --no-single-branch so all fork branches land in the local
         # object store.  GitHub refuses direct SHA fetch for commits only
-        # reachable from a fork branch (not the upstream fork network), so
-        # git submodule update alone fails; fetching all branches ensures the
-        # gitlink SHA is present regardless of which branch it lives on.
+        # reachable from a fork branch (not the upstream fork network).
+        # Checking out the gitlink SHA directly in the standalone clone (before
+        # absorbgitdirs) avoids git submodule update's own fetch step, which
+        # would try the same blocked direct-SHA fetch and fail.
         # If the build branch does not exist in the client repo at all, fall
         # back to the standard SHA path (commit must then be reachable from
         # upstream).
         branch_clone = subprocess.run(
-            ['git'] + git_auth + ['clone', '--no-checkout', '--no-single-branch',
+            ['git'] + git_auth + ['clone', '--no-single-branch',
              '--branch', build_branch, client_url, str(client_dir)])
         if branch_clone.returncode == 0:
-            # Move the standalone .git dir into .git/modules so this directory
-            # is a properly wired submodule for the checkout step.
+            # Checkout the exact gitlink SHA using the standalone clone's
+            # object store, which has all branches.  Do this before
+            # absorbgitdirs so the working tree is populated while the .git
+            # directory is still a regular directory and not a worktree link.
+            subprocess.run(['git', '-C', str(client_dir), 'checkout',
+                            '--detach', gitlink_sha], check=True)
+            # Wire the submodule gitdir into the parent's .git/modules tree.
             subprocess.run(['git', '-C', str(root), 'submodule', 'absorbgitdirs'], check=True)
-            subprocess.run(['git', '-C', str(root), 'submodule', 'update', 'apps/client'],
-                           check=True)
         else:
             shutil.rmtree(str(client_dir), ignore_errors=True)
             subprocess.run(['git'] + git_auth + ['-C', str(root), 'submodule', 'update',
