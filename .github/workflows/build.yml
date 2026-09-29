@@ -107,6 +107,7 @@ jobs:
     env:
       PLANK_BUILD_JOBS: '4'
       QT_QPA_PLATFORM: offscreen
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -149,6 +150,7 @@ jobs:
         product: ${{ fromJSON(inputs.product == 'macos-host' && '["host"]' || inputs.product == 'macos-client' && '["client"]' || '["host", "client"]') }}
     env:
       PLANK_BUILD_JOBS: '3'
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
