@@ -227,15 +227,17 @@ def prepare_sources(root, product):
              f'{client_section}.url'],
             capture_output=True, text=True, check=True).stdout.strip()
         client_dir = root / 'apps/client'
-        # Clone by branch name so fork-only commits land in the local object
-        # store.  GitHub refuses direct SHA fetch for commits not reachable
-        # from the upstream fork network, so git submodule update --init alone
-        # fails when the gitlink SHA lives only in a fork branch.  If the
-        # build branch does not exist in the client repo fall back to the
-        # standard SHA path (the commit must then be reachable from upstream).
+        # Clone with --no-single-branch so all fork branches land in the local
+        # object store.  GitHub refuses direct SHA fetch for commits only
+        # reachable from a fork branch (not the upstream fork network), so
+        # git submodule update alone fails; fetching all branches ensures the
+        # gitlink SHA is present regardless of which branch it lives on.
+        # If the build branch does not exist in the client repo at all, fall
+        # back to the standard SHA path (commit must then be reachable from
+        # upstream).
         branch_clone = subprocess.run(
-            ['git'] + git_auth + ['clone', '--no-checkout', '--branch', build_branch,
-             client_url, str(client_dir)])
+            ['git'] + git_auth + ['clone', '--no-checkout', '--no-single-branch',
+             '--branch', build_branch, client_url, str(client_dir)])
         if branch_clone.returncode == 0:
             # Move the standalone .git dir into .git/modules so this directory
             # is a properly wired submodule for the checkout step.
