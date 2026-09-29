@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import shutil
 import subprocess
 
 # Keep jointly-built trees together. In particular the Mac native libraries
@@ -209,8 +210,32 @@ def prepare_sources(root, product):
         subprocess.run(['git', '-C', str(root / 'apps/host/linux'), 'submodule', 'update',
                         '--init', '--recursive', 'third-party/build-deps'], check=True)
     elif product.endswith('-client'):
-        subprocess.run(['git'] + git_auth + ['-C', str(root), 'submodule', 'update',
-                        '--init', 'apps/client'], check=True)
+        build_branch = os.environ.get('PLANK_BUILD_BRANCH', 'main')
+        # Register the submodule URL so we can read it back.
+        subprocess.run(['git', '-C', str(root), 'submodule', 'init', 'apps/client'], check=True)
+        client_url = subprocess.run(
+            ['git', '-C', str(root), 'config', '--get', 'submodule.apps/client.url'],
+            capture_output=True, text=True, check=True).stdout.strip()
+        client_dir = root / 'apps/client'
+        # Clone by branch name so fork-only commits land in the local object
+        # store.  GitHub refuses direct SHA fetch for commits not reachable
+        # from the upstream fork network, so git submodule update --init alone
+        # fails when the gitlink SHA lives only in a fork branch.  If the
+        # build branch does not exist in the client repo fall back to the
+        # standard SHA path (the commit must then be reachable from upstream).
+        branch_clone = subprocess.run(
+            ['git'] + git_auth + ['clone', '--no-checkout', '--branch', build_branch,
+             client_url, str(client_dir)])
+        if branch_clone.returncode == 0:
+            # Move the standalone .git dir into .git/modules so this directory
+            # is a properly wired submodule for the checkout step.
+            subprocess.run(['git', '-C', str(root), 'submodule', 'absorbgitdirs'], check=True)
+            subprocess.run(['git', '-C', str(root), 'submodule', 'update', 'apps/client'],
+                           check=True)
+        else:
+            shutil.rmtree(str(client_dir), ignore_errors=True)
+            subprocess.run(['git'] + git_auth + ['-C', str(root), 'submodule', 'update',
+                            '--init', 'apps/client'], check=True)
 
 
 def hits_path(deps, product):
