@@ -239,12 +239,11 @@ def prepare_sources(root, product):
                 ['git', '-C', str(client_dir), 'rev-parse', 'HEAD'],
                 capture_output=True, text=True).stdout.strip()
             if current_sha == gitlink_sha:
-                return  # already correct
-            subprocess.run(['git', '-C', str(client_dir), 'checkout',
-                            '--detach', gitlink_sha], check=True)
-            subprocess.run(['git', '-C', str(client_dir), 'submodule',
-                            'update', '--init', '--recursive'], check=True)
-            return
+                return  # already correct; same job as the restore step
+            # Not at the right commit and objects may be absent — delete and
+            # re-clone below so the fallback does not try to checkout a SHA
+            # that is not in the current object store.
+            shutil.rmtree(str(client_dir), ignore_errors=True)
         # Fresh clone needed.  Fetch all branches so the gitlink SHA is
         # reachable even when it lives on a non-default fork branch.
         # If the build branch does not exist in the client repo at all, fall
