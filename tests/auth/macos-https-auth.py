@@ -71,7 +71,8 @@ def discovery(tls, port):
                 "HttpsPort": str(port), "PlankHostMetadataVersion": "1",
                 "PlankHostVersion": "macos-host-qualification", "PlankAuth": "1",
                 "ServerCodecModeSupport": "0", "PlankTopologyVersion": "0",
-                "PlankFeatureFlags": "0", "PairStatus": "0", "PlankOccupied": "0"}
+                "PlankFeatureFlags": "0", "PairStatus": "0", "PlankOccupied": "0",
+                "BroadcastSource": "0"}
     assert len(root) == len(expected) and {node.tag: node.text for node in root} == expected
     # Discovery is public. Occupancy is a nameless bit only; it must not
     # expose an account, UID, or an alternative GET authentication path.
