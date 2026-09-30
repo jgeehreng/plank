@@ -230,6 +230,20 @@ int main(void) {
   expect_reason(old_key, &old_trust, 1, "plank-broker", "broker-2026-01", k_host, now_unix - 10, now_unix + 50, 1, wrong_audience, "wrong_audience", "wrong-audience");
   expect_reason(old_key, &old_trust, 1, "plank-broker", "broker-2026-01", k_host, now_unix - 10, now_unix + 50, 1, wrong_purpose, "wrong_purpose", "wrong-purpose");
   expect_reason(old_key, &old_trust, 1, "plank-broker", "broker-2026-01", k_other, now_unix - 10, now_unix + 50, 1, NULL, "wrong_uniqueid", "wrong-workstation");
+  {
+    static const char *stored_upper = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+    static const char *ticket_lower = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    fill(&fields, "plank-broker", "broker-2026-01", ticket_lower, now_unix - 10, now_unix + 50);
+    CHECK(wrap(old_key, &fields, payload, sizeof payload, signature, sizeof signature, raw, sizeof raw, &raw_len), "stored-uppercase-fixture");
+    decide(&old_trust, 1, 1, 1, 1, 1, payload, signature, stored_upper, now_unix, 300, 60, &decision);
+    CHECK(decision.status == PLANK_ADMISSION_STATUS_ACCEPT && consumed(fields.admission_id), "stored-uppercase-uniqueid");
+    decide(&old_trust, 1, 1, 1, 1, 1, payload, signature, stored_upper, now_unix, 300, 60, &decision);
+    CHECK(strcmp(decision.reason, "replay") == 0, "stored-uppercase-replay");
+    fill(&fields, "plank-broker", "broker-2026-01", k_other, now_unix - 10, now_unix + 50);
+    CHECK(wrap(old_key, &fields, payload, sizeof payload, signature, sizeof signature, raw, sizeof raw, &raw_len), "stored-uppercase-other-fixture");
+    decide(&old_trust, 1, 1, 1, 1, 1, payload, signature, stored_upper, now_unix, 300, 60, &decision);
+    CHECK(strcmp(decision.reason, "wrong_uniqueid") == 0 && !consumed(fields.admission_id), "stored-uppercase-other-host");
+  }
   expect_reason(old_key, &old_trust, 1, "plank-broker", "broker-2026-01", k_host, now_unix - 120, now_unix - 61, 1, NULL, "expired", "expired");
   expect_reason(old_key, &old_trust, 1, "plank-broker", "broker-2026-01", k_host, now_unix + 61, now_unix + 90, 1, NULL, "not_yet_valid", "not-yet-valid");
   expect_reason(old_key, &old_trust, 1, "plank-broker", "broker-2026-01", k_host, now_unix - 10, now_unix + 301, 1, NULL, "excessive_ttl", "excessive-ttl");
@@ -302,7 +316,11 @@ int main(void) {
   CHECK(strcmp(decision.reason, "config_invalid") == 0 && !consumed(fields.admission_id), "managed-invalid-config");
 
   CHECK(plank_admission_uniqueid_matches(k_host, k_host), "client-uniqueid-match");
+  CHECK(plank_admission_uniqueid_matches("AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+                                         "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+        "client-uniqueid-case");
   CHECK(!plank_admission_uniqueid_matches(k_host, k_other), "client-wrong-host-stops");
+  CHECK(!plank_admission_uniqueid_matches("not-a-uuid", "not-a-uuid"), "client-uniqueid-shape");
 
   EVP_PKEY_free(old_key);
   EVP_PKEY_free(new_key);
