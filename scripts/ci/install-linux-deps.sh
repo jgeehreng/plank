@@ -57,6 +57,11 @@ case "$role:$ID:$VERSION_ID" in
       libshaderc-dev libvulkan-dev libssl-dev libudev-dev libva-dev libvdpau-dev \
       libwayland-dev libx11-dev libxext-dev libxcursor-dev libxfixes-dev \
       libxi-dev libxrandr-dev libxss-dev libxtst-dev libxkbcommon-dev \
+      libxkbcommon-x11-0 libx11-xcb1 \
+      libxcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+      libxcb-randr0 libxcb-render0 libxcb-render-util0 libxcb-shape0 \
+      libxcb-shm0 libxcb-sync1 libxcb-util1 libxcb-xfixes0 libxcb-xinerama0 \
+      libxcb-xkb1 \
       libasound2-dev zlib1g-dev patchelf binutils
     if dpkg-query -W --showformat='${Status}' libplacebo-dev 2>/dev/null |
         grep -q 'install ok installed'; then
