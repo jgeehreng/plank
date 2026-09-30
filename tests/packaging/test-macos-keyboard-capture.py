@@ -21,6 +21,10 @@ class MacKeyboardCapture(unittest.TestCase):
         self.assertIn("kCGEventTapDisabledByTimeout", source)
         self.assertIn("kCGEventTapDisabledByUserInput", source)
         self.assertIn("CFMachPortInvalidate", source)
+        refresh = source.split("void refresh()", 1)[1].split(
+            "MacKeyboardCapture::MacKeyboardCapture", 1)[0]
+        self.assertLess(refresh.index("CGEventTapIsEnabled(tap)"), refresh.index("if (!isTrusted())"))
+        self.assertLess(refresh.index("return;"), refresh.index("if (!isTrusted())"))
 
     def test_focused_session_routes_once(self):
         source = (CLIENT / "app/streaming/input/input.cpp").read_text()

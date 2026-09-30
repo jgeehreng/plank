@@ -92,9 +92,34 @@ class ReconnectPresentation(unittest.TestCase):
                         "void Session::stopPlankTransportMediaReceivers()")
         self.assertIn("m_PlankTransportDataThread = std::thread", start)
 
+    def test_first_launch_waits_for_skip_gdm_worker(self):
+        self.assertIn("transientDisplayWorkerDrop", session)
+        self.assertIn("UnknownNetworkError", session)
+        self.assertIn("waitForReplacementWorkerAndLaunch", session)
+        self.assertIn("PLANK launch lost the display worker during a session start; waiting:", session)
+        network = between(session, "} catch (const QtNetworkReplyException& e) {",
+                          "// Record the successful launch immediately.")
+        self.assertIn("waitForReplacementWorkerAndLaunch()", network)
+        self.assertIn("SslHandshakeFailedError", network)
+        self.assertIn("PlankDisplayTransitionLaunch", session)
+        wait = between(session, "const auto waitForReplacementWorkerAndLaunch",
+                       "try {\n            startApp();")
+        self.assertIn("transition.decide(layoutMatches, true", wait)
+        self.assertIn("Action::Wait", wait)
+
+    def test_login_dialog_shows_progress(self):
+        view = (source / "app/gui/PcView.qml").read_text()
+        self.assertIn("property bool signingIn: false", view)
+        self.assertIn("startWorkstationSignIn()", view)
+        self.assertIn('qsTr("Signing in to workstation...")', view)
+        self.assertIn("BusyIndicator", view.split("id: loginDialog", 1)[1].split("id: editBookmarkDialog", 1)[0])
+        self.assertNotIn("loginDialog.accept()", view)
+
     def test_initial_status_is_neutral(self):
         begin = between(session, "bool Session::beginPlankReconnect", "bool Session::runPlankReconnect")
         self.assertIn('"Waiting for workstation...", false', begin)
+        self.assertIn('!m_ReachedUserDesktop.load()', begin)
+        self.assertIn('"Opening your desktop..."', begin)
         self.assertNotIn('"Connection interrupted', begin)
 
     def test_status_is_published_before_decoder_suspension(self):
@@ -115,6 +140,16 @@ class ReconnectPresentation(unittest.TestCase):
     def test_timeout_and_logout_use_same_presentation(self):
         self.assertIn('setPlankReconnectStatus("Returning to the sign-in screen...", false)', session)
         self.assertIn('setPlankReconnectStatus("Workstation is taking longer to respond...", true)', session)
+        self.assertIn("m_ReachedUserDesktop", session)
+        self.assertIn("m_LogoutReturnedToLogin", session)
+        reconnect = between(session, "bool Session::runPlankReconnect", "bool Session::finishPlankReconnect")
+        self.assertIn("http.authenticate(m_PlankUsername, m_PlankPassword, &greeterConfirmed,", reconnect)
+        self.assertIn("!m_ReachedUserDesktop.load()", reconnect)
+        self.assertIn("greeterConfirmed && m_ReachedUserDesktop.load()", reconnect)
+        self.assertIn("PLANK reconnect stopped on the sign-in layout after the desktop was open", session)
+        self.assertIn("Returning to the sign-in screen after logout", session)
+        self.assertIn('You have logged out of the workstation.', session)
+        self.assertIn('{"start_desktop", startDesktop}', http)
 
     def test_completion_clears_status_and_wait_restores_it(self):
         finish = between(session, "bool Session::finishPlankReconnect", "class PlankReconnectThread")
