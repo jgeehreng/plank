@@ -12,6 +12,14 @@ case $role in
   *) exit 2 ;;
 esac
 git -C "$PLANK_SOURCE_ROOT" submodule update --init third_party/kyber-kymux
+if [[ $role == macos-host ]]; then
+  # The admission codec lives in the Linux host tree. Check out that exact
+  # gitlink without its recursive Linux build dependencies. Nested gitlinks
+  # stay unpopulated, so ignore their worktree state at the clean-tree gate.
+  git -C "$PLANK_SOURCE_ROOT" submodule update --init apps/host/linux
+  git -C "$PLANK_SOURCE_ROOT" config submodule.apps/host/linux.ignore dirty
+  test -f "$PLANK_SOURCE_ROOT/apps/host/linux/src/auth/plank_admission.c"
+fi
 if [[ -n $product ]]; then
   git -C "$PLANK_SOURCE_ROOT" submodule update --init --recursive "$product"
 fi
