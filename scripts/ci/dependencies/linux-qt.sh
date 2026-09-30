@@ -8,7 +8,7 @@ if [[ ! -x "$qt_root/bin/qmake6" || ! -f "$qt_root/plugins/platforms/libqwayland
   "$PLANK_DEP_ROOT/aqt/bin/pip" install aqtinstall==3.3.0
   "$PLANK_DEP_ROOT/aqt/bin/aqt" install-qt linux desktop 6.10.2 linux_gcc_64 \
     --outputdir "$PLANK_DEP_ROOT/qt" \
-    --archives qtbase qtdeclarative qtsvg qttools qtshadertools qtwayland qtimageformats
+    --archives qtbase qtdeclarative qtsvg qttools qtshadertools qtwayland qtimageformats icu
 fi
 # The aqtinstall Qt 6.10.2 Linux binaries bundle ICU 73 in the Qt lib
 # directory.  Ubuntu 24.04 ships ICU 74, so we must point qmake6 at its
