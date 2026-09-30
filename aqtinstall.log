@@ -1,0 +1,112 @@
+2026-09-23 11:21:36,515 - aqt.main - INFO - installer 8437727104 aqtinstall(aqt) v3.3.0 on Python 3.9.6 [CPython Clang 21.0.0 (clang-2100.3.34.2)]
+2026-09-23 11:21:36,515 - aqt.helper - DEBUG - helper 8437727104 Attempt to download checksum at https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/Updates.xml.sha256
+2026-09-23 11:21:37,718 - aqt.helper - DEBUG - helper 8437727104 Attempt to download checksum at https://download.qt.io/online/qtsdkrepository/mac_x64/extensions/qtwebengine/6102/clang_64/Updates.xml.sha256
+2026-09-23 11:21:38,578 - aqt.archives - INFO - archives 8437727104 Found extension qtwebengine
+2026-09-23 11:21:38,579 - aqt.helper - DEBUG - helper 8437727104 Attempt to download checksum at https://download.qt.io/online/qtsdkrepository/mac_x64/extensions/qtpdf/6102/clang_64/Updates.xml.sha256
+2026-09-23 11:21:39,492 - aqt.archives - INFO - archives 8437727104 Found extension qtpdf
+2026-09-23 11:21:39,967 - aqt.helper - DEBUG - helper 8437727104 Attempt to download checksum at https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtbase-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z.sha256
+2026-09-23 11:21:39,967 - aqt.helper - DEBUG - helper 8437727104 Attempt to download checksum at https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtdeclarative-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z.sha256
+2026-09-23 11:21:39,969 - aqt.helper - DEBUG - helper 8437727104 Attempt to download checksum at https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qttools-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z.sha256
+2026-09-23 11:21:39,970 - aqt.helper - DEBUG - helper 8437727104 Attempt to download checksum at https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtsvg-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z.sha256
+2026-09-23 11:21:40,398 - aqt.helper - INFO - helper 8437727104 Downloading qtsvg...
+2026-09-23 11:21:40,399 - aqt.helper - INFO - helper 8437727104 Downloading qtdeclarative...
+2026-09-23 11:21:40,398 - aqt.installer - DEBUG - installer 8437727104 Download URL: https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtsvg-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z
+2026-09-23 11:21:40,399 - aqt.installer - DEBUG - installer 8437727104 Download URL: https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtdeclarative-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z
+2026-09-23 11:21:40,423 - aqt.helper - INFO - helper 8437727104 Downloading qtbase...
+2026-09-23 11:21:40,424 - aqt.helper - INFO - helper 8437727104 Downloading qttools...
+2026-09-23 11:21:40,423 - aqt.installer - DEBUG - installer 8437727104 Download URL: https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtbase-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z
+2026-09-23 11:21:40,424 - aqt.installer - DEBUG - installer 8437727104 Download URL: https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qttools-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z
+2026-09-23 11:21:40,878 - aqt.helper - DEBUG - helper 8437727104 Asked to redirect(302) to: https://qt.mirror.constant.com/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtdeclarative-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z
+2026-09-23 11:21:40,878 - aqt.helper - DEBUG - helper 8437727104 Asked to redirect(302) to: https://qt.mirror.constant.com/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtbase-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z
+2026-09-23 11:21:40,878 - aqt.helper - DEBUG - helper 8437727104 Asked to redirect(302) to: https://qt.mirror.constant.com/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qtsvg-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z
+2026-09-23 11:21:40,878 - aqt.helper - INFO - helper 8437727104 Redirected: qt.mirror.constant.com
+2026-09-23 11:21:40,878 - aqt.helper - INFO - helper 8437727104 Redirected: qt.mirror.constant.com
+2026-09-23 11:21:40,878 - aqt.helper - INFO - helper 8437727104 Redirected: qt.mirror.constant.com
+2026-09-23 11:21:40,883 - aqt.helper - DEBUG - helper 8437727104 Asked to redirect(302) to: https://qt.mirror.constant.com/online/qtsdkrepository/mac_x64/desktop/qt6_6102/qt6_6102/qt.qt6.6102.clang_64/6.10.2-0-202601261210qttools-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z
+2026-09-23 11:21:40,884 - aqt.helper - INFO - helper 8437727104 Redirected: qt.mirror.constant.com
+2026-09-23 11:21:41,023 - aqt.installer - INFO - installer 8437727104 Finished installation of qtsvg-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 1.05596908
+2026-09-23 11:21:44,493 - aqt.installer - INFO - installer 8437727104 Finished installation of qttools-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 4.52746788
+2026-09-23 11:21:45,046 - aqt.installer - INFO - installer 8437727104 Finished installation of qtbase-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 5.08072279
+2026-09-23 11:21:49,801 - aqt.installer - INFO - installer 8437727104 Finished installation of qtdeclarative-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 9.83530362
+2026-09-23 11:21:50,312 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/bin/qmake
+2026-09-23 11:21:50,317 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2.pc
+2026-09-23 11:21:50,317 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6LabsWavefrontMesh.pc
+2026-09-23 11:21:50,318 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2FusionStyleImpl.pc
+2026-09-23 11:21:50,318 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Platform.pc
+2026-09-23 11:21:50,318 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6LabsFolderListModel.pc
+2026-09-23 11:21:50,318 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickVectorImageHelpers.pc
+2026-09-23 11:21:50,319 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlCore.pc
+2026-09-23 11:21:50,319 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Concurrent.pc
+2026-09-23 11:21:50,319 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6LabsQmlModels.pc
+2026-09-23 11:21:50,319 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickEffects.pc
+2026-09-23 11:21:50,319 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlWorkerScript.pc
+2026-09-23 11:21:50,320 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2MacOSStyleImpl.pc
+2026-09-23 11:21:50,320 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Designer.pc
+2026-09-23 11:21:50,320 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2Impl.pc
+2026-09-23 11:21:50,321 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlIntegration.pc
+2026-09-23 11:21:50,321 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2IOSStyleImpl.pc
+2026-09-23 11:21:50,321 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Xml.pc
+2026-09-23 11:21:50,322 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2Universal.pc
+2026-09-23 11:21:50,322 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickDialogs2QuickImpl.pc
+2026-09-23 11:21:50,322 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6SvgWidgets.pc
+2026-09-23 11:21:50,323 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6LabsAnimation.pc
+2026-09-23 11:21:50,323 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6UiTools.pc
+2026-09-23 11:21:50,323 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickDialogs2Utils.pc
+2026-09-23 11:21:50,323 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickTest.pc
+2026-09-23 11:21:50,324 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickDialogs2.pc
+2026-09-23 11:21:50,324 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlXmlListModel.pc
+2026-09-23 11:21:50,324 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2FluentWinUI3StyleImpl.pc
+2026-09-23 11:21:50,324 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Help.pc
+2026-09-23 11:21:50,324 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6OpenGLWidgets.pc
+2026-09-23 11:21:50,325 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6UiPlugin.pc
+2026-09-23 11:21:50,325 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Quick.pc
+2026-09-23 11:21:50,325 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2Imagine.pc
+2026-09-23 11:21:50,325 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6LabsSharedImage.pc
+2026-09-23 11:21:50,326 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Linguist.pc
+2026-09-23 11:21:50,326 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6PrintSupport.pc
+2026-09-23 11:21:50,326 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2Fusion.pc
+2026-09-23 11:21:50,326 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2BasicStyleImpl.pc
+2026-09-23 11:21:50,327 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickVectorImage.pc
+2026-09-23 11:21:50,327 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2ImagineStyleImpl.pc
+2026-09-23 11:21:50,327 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6LabsSynchronizer.pc
+2026-09-23 11:21:50,327 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickWidgets.pc
+2026-09-23 11:21:50,328 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Svg.pc
+2026-09-23 11:21:50,328 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickTemplates2.pc
+2026-09-23 11:21:50,328 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlMeta.pc
+2026-09-23 11:21:50,329 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlNetwork.pc
+2026-09-23 11:21:50,329 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2Basic.pc
+2026-09-23 11:21:50,329 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Core.pc
+2026-09-23 11:21:50,329 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Gui.pc
+2026-09-23 11:21:50,330 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2MaterialStyleImpl.pc
+2026-09-23 11:21:50,330 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlAssetDownloader.pc
+2026-09-23 11:21:50,330 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2Material.pc
+2026-09-23 11:21:50,330 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6OpenGL.pc
+2026-09-23 11:21:50,330 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlLocalStorage.pc
+2026-09-23 11:21:50,331 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6LabsSettings.pc
+2026-09-23 11:21:50,331 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Test.pc
+2026-09-23 11:21:50,331 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Network.pc
+2026-09-23 11:21:50,331 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Sql.pc
+2026-09-23 11:21:50,332 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6LabsPlatform.pc
+2026-09-23 11:21:50,332 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickLayouts.pc
+2026-09-23 11:21:50,332 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6DBus.pc
+2026-09-23 11:21:50,332 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlCompiler.pc
+2026-09-23 11:21:50,332 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Widgets.pc
+2026-09-23 11:21:50,333 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6Qml.pc
+2026-09-23 11:21:50,333 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QuickControls2UniversalStyleImpl.pc
+2026-09-23 11:21:50,333 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/pkgconfig/Qt6QmlModels.pc
+2026-09-23 11:21:50,333 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QmlLS.prl
+2026-09-23 11:21:50,334 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6FbSupport.prl
+2026-09-23 11:21:50,335 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QmlDebug.prl
+2026-09-23 11:21:50,335 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QmlTypeRegistrar.prl
+2026-09-23 11:21:50,336 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QuickTestUtils.prl
+2026-09-23 11:21:50,336 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6ExampleIcons.prl
+2026-09-23 11:21:50,336 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QuickControlsTestUtils.prl
+2026-09-23 11:21:50,336 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6DeviceDiscoverySupport.prl
+2026-09-23 11:21:50,336 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QmlDom.prl
+2026-09-23 11:21:50,337 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6ExamplesAssetDownloader.prl
+2026-09-23 11:21:50,337 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QmlAssetDownloader.prl
+2026-09-23 11:21:50,337 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6PacketProtocol.prl
+2026-09-23 11:21:50,337 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QmlFormat.prl
+2026-09-23 11:21:50,337 - aqt.updater - INFO - updater 8437727104 Patching /Users/nyc-mini-004/Library/Caches/plank-build/qt-6.10.2/6.10.2/macos/lib/libQt6QmlToolingSettings.prl
+2026-09-23 11:21:50,337 - aqt.main - INFO - installer 8437727104 Finished installation
+2026-09-23 11:21:50,337 - aqt.main - INFO - installer 8437727104 Time elapsed: 13.82291763 second
