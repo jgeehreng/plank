@@ -158,7 +158,7 @@ def check_prepared(root, deps, product, component):
         'qt': (['qt/6.10.2/gcc_64/bin/qmake6'] if product == 'linux-client'
                else ['qt/6.10.2/macos/bin/qmake']),
         'sdl3': ['client-sdl3/install/lib/pkgconfig/sdl3.pc',
-                 'client-sdl3/install/lib/pkgconfig/SDL3_ttf.pc'],
+                 'client-sdl3/install/lib/pkgconfig/sdl3-ttf.pc'],
         'native': ['macos-client/install/lib/' + name + '.dylib' for name in
                    ('libavcodec', 'libavutil', 'libswscale', 'libswresample',
                     'libssl', 'libcrypto', 'libSDL3', 'libSDL3_ttf', 'libopus', 'libfreetype')],
@@ -168,8 +168,9 @@ def check_prepared(root, deps, product, component):
                    ['client-ffmpeg/install/lib/' + name + '.so' for name in
                     ('libavcodec', 'libavutil', 'libswscale', 'libswresample')]),
     }[component]
-    if any(not (deps / name).is_file() for name in required):
-        raise ValueError('Incomplete prepared dependency cache')
+    missing = [name for name in required if not (deps / name).is_file()]
+    if missing:
+        raise ValueError('Incomplete prepared dependency cache: ' + ', '.join(missing))
     if component == 'ffmpeg' and product == 'linux-host':
         subprocess.run(['bash', str(root / 'scripts/build/verify-host-dependency-patches.sh'),
                         str(root / HOST_DEPS / 'build')], check=True)

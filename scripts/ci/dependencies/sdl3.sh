@@ -8,7 +8,7 @@ downloads="$PLANK_DEP_ROOT/client-sdl3/downloads"
 src="$PLANK_DEP_ROOT/client-sdl3/src"
 jobs=${PLANK_BUILD_JOBS:-4}
 
-if [[ -f "$prefix/lib/pkgconfig/sdl3.pc" && -f "$prefix/lib/pkgconfig/SDL3_ttf.pc" ]]; then
+if [[ -f "$prefix/lib/pkgconfig/sdl3.pc" && -f "$prefix/lib/pkgconfig/sdl3-ttf.pc" ]]; then
   exit 0
 fi
 

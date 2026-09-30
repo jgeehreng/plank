@@ -260,7 +260,7 @@ class ProductDependencyCacheTests(unittest.TestCase):
                      *(f'client-ffmpeg/install/lib/{name}.so' for name in
                        ('libavcodec', 'libavutil', 'libswscale', 'libswresample')),
                      'client-sdl3/install/lib/pkgconfig/sdl3.pc',
-                     'client-sdl3/install/lib/pkgconfig/SDL3_ttf.pc',
+                     'client-sdl3/install/lib/pkgconfig/sdl3-ttf.pc',
                      'qt/6.10.2/gcc_64/bin/qmake6'):
             self.write(self.deps / name, 'fixture')
         invoke('seal')
