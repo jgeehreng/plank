@@ -182,7 +182,7 @@ if [[ $private_qt_runtime == 1 ]]; then
     exit 1
   }
   qt_runtime_root=${PLANK_CLIENT_QT_RUNTIME:-}
-  [[ -n $qt_runtime_root && -d $qt_runtime_root/lib && -f $qt_runtime_root/plugins/platforms/libqwayland-generic.so ]] || {
+  [[ -n $qt_runtime_root && -d $qt_runtime_root/lib && -f $qt_runtime_root/plugins/platforms/libqwayland.so ]] || {
     echo "${client_deb_distro} client DEB requires PLANK_CLIENT_QT_RUNTIME with pinned Qt 6.10.2 and its Wayland plugin" >&2
     exit 1
   }
