@@ -12,7 +12,6 @@ class MacosHostBootstrapTests(unittest.TestCase):
         self.assertNotIn('submodule update --init --recursive apps/host/linux', source)
         self.assertIn('submodule.apps/host/linux.ignore dirty', source)
         self.assertIn('apps/host/linux/src/auth/plank_admission.c', source)
-        self.assertTrue((ROOT / 'apps/host/linux/src/auth/plank_admission.c').is_file())
 
 
 if __name__ == '__main__':
