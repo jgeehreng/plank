@@ -149,7 +149,12 @@ def read_public(path, mode=0o644):
                 stat.S_IMODE(st.st_mode) != mode or not 0 < st.st_size <= 32768:
             raise ValueError("Invalid administrator-owned public configuration")
         config = plistlib.loads(source.read(32769))
-    if set(config) != {"Address", "Port", "Name", "UUID"} or config["Address"] != "0.0.0.0" or \
+    allowed = {"Address", "Port", "Name", "UUID"}
+    if "publish_session_user" in config:
+        allowed.add("publish_session_user")
+        if type(config["publish_session_user"]) is not bool:
+            raise ValueError("Invalid public configuration values")
+    if set(config) != allowed or config["Address"] != "0.0.0.0" or \
             type(config["Port"]) is not int or not 1 <= config["Port"] <= 65535 or \
             not isinstance(config["Name"], str) or not config["Name"] or not uuid.UUID(config["UUID"]):
         raise ValueError("Invalid public configuration values")

@@ -10,6 +10,7 @@ control_output=$2
 bash "$source_root/scripts/test/build-macos-auth.sh" "$source_root" "$control_output"
 common=(-mmacosx-version-min=27.0 -fobjc-arc -Wall -Wextra -Werror
     -I"$source_root/apps/host/macos/auth" -I"$source_root/apps/host/macos/control"
+    -I"$source_root/apps/host/linux/src/auth"
     -framework Foundation -framework Security -framework AppKit -framework CoreGraphics
     -framework SystemConfiguration -framework Network)
 xcrun clang "${common[@]}" "$source_root/apps/host/macos/auth/graphical-authority.m" \
@@ -19,6 +20,7 @@ control_sources=("$source_root/apps/host/macos/control/http-request.m"
     "$source_root/apps/host/macos/control/server-information.m"
     "$source_root/apps/host/macos/control/fixed-capture.m"
     "$source_root/apps/host/macos/control/https-auth-server.m"
+    "$source_root/apps/host/linux/src/auth/plank_admission.c"
     "$source_root/apps/host/macos/auth/authentication-session.m"
     "$source_root/apps/host/macos/auth/graphical-authority.m"
     "$source_root/probes/macos/https-auth.m")

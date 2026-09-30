@@ -28,6 +28,10 @@ typedef enum PlankTransportControlType {
     PLANK_TRANSPORT_CONTROL_VIDEO_BITRATE_APPLIED = 6,
     /* Host-only, zero payload; advisory, never authentication or launch authority. */
     PLANK_TRANSPORT_CONTROL_HOST_DESKTOP_HANDOFF = 7,
+    /* Client to host. Two uint32 values: IPv4 (first octet in the high byte)
+     * and the UDP video port in the low 16 bits. High 16 bits of the port
+     * word must be 0. Audio uses the video port plus 2. No pixels. */
+    PLANK_TRANSPORT_CONTROL_BROADCAST_RECEIVE = 8,
 } PlankTransportControlType;
 
 typedef struct PlankTransportControlPacket {

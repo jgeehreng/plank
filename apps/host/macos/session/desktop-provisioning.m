@@ -50,13 +50,22 @@ static NSData *readFile(int parent, const char *name, uid_t owner, mode_t mode) 
     return data;
 }
 
+BOOL PLANKMacHostConfigurationCount(NSDictionary *config, BOOL *publishSessionUser) {
+    if (publishSessionUser) *publishSessionUser = NO;
+    id value = config[@"publish_session_user"];
+    if (!value) return config.count == 4;
+    if (config.count != 5 || CFGetTypeID((__bridge CFTypeRef)value) != CFBooleanGetTypeID()) return NO;
+    if (publishSessionUser) *publishSessionUser = [value boolValue];
+    return YES;
+}
+
 NSDictionary *PLANKMacReadPublicConfiguration(NSString *directory, uid_t owner) {
     int fd = openDirectory(directory, NO);
     if (!ownedDirectory(fd, owner, 0755)) { if (fd >= 0) close(fd); return nil; }
     NSData *data = readFile(fd, "host.plist", owner, 0644);
     close(fd);
     id config = data ? [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:NULL] : nil;
-    if (![config isKindOfClass:NSDictionary.class] || [config count] != 4 ||
+    if (![config isKindOfClass:NSDictionary.class] || !PLANKMacHostConfigurationCount(config, NULL) ||
         ![config[@"Address"] isEqual:@"0.0.0.0"] ||
         ![config[@"Name"] isKindOfClass:NSString.class] || ![config[@"Name"] length] ||
         ![config[@"UUID"] isKindOfClass:NSString.class] || ![[NSUUID alloc] initWithUUIDString:config[@"UUID"]] ||

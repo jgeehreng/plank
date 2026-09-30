@@ -67,6 +67,10 @@
     };
     return _server ? self : nil;
 }
+
+- (void)setAdmissionTrust:(NSDictionary *)trust workstationUUID:(NSString *)workstationUUID {
+    [_server setAdmissionTrust:trust workstationUUID:workstationUUID];
+}
 - (NSDictionary *)prepareDisplayRequest:(NSDictionary *)request token:(NSString *)token
                                   peer:(NSData *)peer status:(unsigned *)status {
     @synchronized(self) {

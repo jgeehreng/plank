@@ -17,6 +17,21 @@ static BOOL publicText(NSString *value, NSUInteger maximum) {
     NSString *_version;
     BOOL _streaming;
     BOOL _occupied;
+    NSString *_sessionUser;
+}
+
+static NSString *publishableAccountName(NSString *value) {
+    if (![value isKindOfClass:NSString.class] || !value.length || value.length > 64) return nil;
+    NSRange domain = [value rangeOfString:@"@"];
+    if (domain.location != NSNotFound) value = [value substringToIndex:domain.location];
+    if (!value.length || value.length > 64) return nil;
+    for (NSUInteger index = 0; index < value.length; ++index) {
+        unichar c = [value characterAtIndex:index];
+        BOOL letter = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+        BOOL digit = c >= '0' && c <= '9';
+        if (!letter && !digit && c != '.' && c != '_' && c != '-') return nil;
+    }
+    return value;
 }
 
 - (instancetype)initWithName:(NSString *)name workstationUUID:(NSUUID *)uuid version:(NSString *)version {
@@ -28,6 +43,11 @@ static BOOL publicText(NSString *value, NSUInteger maximum) {
 }
 - (instancetype)initWithName:(NSString *)name workstationUUID:(NSUUID *)uuid version:(NSString *)version
                   streaming:(BOOL)streaming occupied:(BOOL)occupied {
+    return [self initWithName:name workstationUUID:uuid version:version streaming:streaming
+                     occupied:occupied sessionUser:nil];
+}
+- (instancetype)initWithName:(NSString *)name workstationUUID:(NSUUID *)uuid version:(NSString *)version
+                  streaming:(BOOL)streaming occupied:(BOOL)occupied sessionUser:(NSString *)sessionUser {
     if (!uuid || !publicText(name, 255) || !publicText(version, 128)) return nil;
     uuid_t bytes;
     [uuid getUUIDBytes:bytes];
@@ -40,6 +60,7 @@ static BOOL publicText(NSString *value, NSUInteger maximum) {
         _version = [version copy];
         _streaming = streaming;
         _occupied = occupied;
+        _sessionUser = occupied ? [publishableAccountName(sessionUser) copy] : nil;
     }
     return self;
 }
@@ -62,8 +83,11 @@ static BOOL publicText(NSString *value, NSUInteger maximum) {
         @[@"PlankTopologyVersion", _streaming ? @"13" : @"0"],
         @[@"PlankFeatureFlags", _streaming ? @"7864433" : @"0"],
         @[@"PairStatus", authorized ? @"1" : @"0"],
-        @[@"PlankOccupied", _occupied ? @"1" : @"0"]
+        @[@"PlankOccupied", _occupied ? @"1" : @"0"],
+        // Inventory only. This host does not send NDI. Not an admission field.
+        @[@"BroadcastSource", @"0"]
     ];
+    if (_sessionUser) fields = [fields arrayByAddingObject:@[@"PlankSessionUser", _sessionUser]];
     for (NSArray *field in fields)
         [root addChild:[NSXMLNode elementWithName:field[0] stringValue:field[1]]];
     return [[[NSXMLDocument alloc] initWithRootElement:root] XMLData];

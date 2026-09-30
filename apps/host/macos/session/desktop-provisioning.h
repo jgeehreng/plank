@@ -8,3 +8,6 @@ BOOL PLANKMacPrepareDesktop(NSString **directory, NSDictionary **configuration);
 // Filesystem components also exercised by uninstalled, non-root unit tests.
 BOOL PLANKMacPrepareDesktopIdentity(NSString *directory);
 NSDictionary *PLANKMacReadPublicConfiguration(NSString *directory, uid_t owner);
+// Four public keys, or those four plus a boolean publish_session_user.
+// *publishSessionUser is false when the key is absent.
+BOOL PLANKMacHostConfigurationCount(NSDictionary *config, BOOL *publishSessionUser);

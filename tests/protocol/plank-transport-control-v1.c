@@ -91,6 +91,24 @@ static void check_malformed_messages(void) {
                encoded, PLANK_TRANSPORT_CONTROL_HEADER_SIZE, &encoded_size) == -1);
 }
 
+static void check_broadcast_receive(void) {
+    const uint32_t values[] = {0x0a000001u, 5004u};
+    const uint8_t expected[] = {
+        0x50, 0x4c, 0x44, 0x31, 0x00, 0x08, 0x00, 0x08,
+        0x0a, 0x00, 0x00, 0x01, 0x00, 0x00, 0x13, 0x8c,
+    };
+    uint8_t packet[PLANK_TRANSPORT_CONTROL_MAX_PACKET_SIZE] = {0};
+    size_t size = 0;
+    PlankTransportControlPacket decoded;
+    CHECK(plank_transport_control_encode(PLANK_TRANSPORT_CONTROL_BROADCAST_RECEIVE,
+          values, 2, packet, sizeof(packet), &size) == 0);
+    CHECK(size == sizeof(expected));
+    CHECK(memcmp(packet, expected, size) == 0);
+    CHECK(plank_transport_control_decode(packet, size, &decoded) == 0);
+    CHECK(decoded.type == PLANK_TRANSPORT_CONTROL_BROADCAST_RECEIVE);
+    CHECK(decoded.payload_size == 8);
+}
+
 static void check_desktop_handoff_notice(void) {
     const uint8_t expected[] = {0x50, 0x4c, 0x44, 0x31, 0x00, 0x07, 0x00, 0x00};
     uint8_t packet[PLANK_TRANSPORT_CONTROL_MAX_PACKET_SIZE] = {0};
@@ -110,6 +128,7 @@ int main(void) {
     check_empty_message();
     check_multiword_message();
     check_session_takeover_reason();
+    check_broadcast_receive();
     check_desktop_handoff_notice();
     check_malformed_messages();
     return 0;

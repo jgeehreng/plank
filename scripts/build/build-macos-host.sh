@@ -86,7 +86,7 @@ xcrun clang -mmacosx-version-min=27.0 -Wall -Wextra -Werror \
 "$output/video-recovery-test"
 common=("${PLANK_FILE_FLAGS[@]}" -mmacosx-version-min=27.0 -fobjc-arc -Wall -Wextra -Werror
     -Iapps/host/macos/auth -Iapps/host/macos/control -Iapps/host/macos/media -Iapps/host/macos/input
-    -Iapps/host/macos/session -Iprotocol/plank-transport/include
+    -Iapps/host/macos/session -Iapps/host/linux/src/auth -Iprotocol/plank-transport/include
     -framework Foundation -framework Security -framework SystemConfiguration -framework CoreFoundation
     -framework CoreGraphics -framework AppKit -framework Network -framework CoreMedia
     -framework CoreVideo -framework ScreenCaptureKit -framework VideoToolbox -framework AudioToolbox -framework CoreAudio
@@ -96,6 +96,7 @@ sources=(apps/host/macos/auth/authentication-session.m apps/host/macos/auth/grap
     apps/host/macos/auth/account-verifier.m apps/host/macos/auth/account-channel.m
     apps/host/macos/control/http-request.m apps/host/macos/control/server-information.m
     apps/host/macos/control/fixed-capture.m apps/host/macos/control/desktop-display.m apps/host/macos/control/https-auth-server.m
+    apps/host/linux/src/auth/plank_admission.c
     apps/host/macos/media/native-video.m apps/host/macos/media/preview-session.m apps/host/macos/media/clipboard-sync.m apps/host/macos/media/screen-capture.m
     apps/host/macos/media/native-audio.m apps/host/macos/media/opus-encoder.m apps/host/macos/media/audio-tap.m
     apps/host/macos/input/input-events.m apps/host/macos/input/native-input.m apps/host/macos/input/quartz-input.m

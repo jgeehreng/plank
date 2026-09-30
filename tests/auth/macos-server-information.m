@@ -25,7 +25,8 @@ int main(int argc, const char *argv[]) {
             @"hostname": @"Test <Mac> & desktop", @"uniqueid": uuid.UUIDString.lowercaseString,
             @"HttpsPort": @"28987", @"PlankHostMetadataVersion": @"1", @"PlankHostVersion": @"1.0.0-macos-host",
             @"PlankAuth": @"1", @"ServerCodecModeSupport": @"0", @"PlankTopologyVersion": @"0",
-            @"PlankFeatureFlags": @"0", @"PairStatus": @"0", @"PlankOccupied": @"0"
+            @"PlankFeatureFlags": @"0", @"PairStatus": @"0", @"PlankOccupied": @"0",
+            @"BroadcastSource": @"0"
         };
         // Exact public-field allowlist: occupancy is a nameless 0/1 bit.
         // Adding owner, username, UID, or topology data must still fail.
@@ -77,6 +78,22 @@ int main(int argc, const char *argv[]) {
         for (NSString *secret in @[@"username", @"uid", @"user", @"account", @"session"]) {
             assert([occupiedDocument.rootElement elementsForName:secret].count == 0);
         }
-        puts("macos_server_information=pass public_allowlist=1 no_media_claim=1 escaped_xml=1 bounded_query=1 nameless_occupancy=1");
+        assert([occupiedDocument.rootElement elementsForName:@"PlankSessionUser"].count == 0);
+        PLANKMacServerInformation *named = [[PLANKMacServerInformation alloc]
+            initWithName:@"PLANK Mac qualification" workstationUUID:uuid
+            version:@"macos-host-qualification" streaming:YES occupied:YES
+            sessionUser:@"ernie.armitage@example.com"];
+        NSXMLDocument *namedDocument = [[NSXMLDocument alloc]
+            initWithData:[named XMLForControlPort:28989] options:0 error:NULL];
+        NSArray<NSXMLElement *> *account = [namedDocument.rootElement elementsForName:@"PlankSessionUser"];
+        assert(account.count == 1 && [account.firstObject.stringValue isEqual:@"ernie.armitage"]);
+        PLANKMacServerInformation *signIn = [[PLANKMacServerInformation alloc]
+            initWithName:@"PLANK Mac qualification" workstationUUID:uuid
+            version:@"macos-host-qualification" streaming:YES occupied:NO
+            sessionUser:@"ernie.armitage"];
+        NSXMLDocument *signInDocument = [[NSXMLDocument alloc]
+            initWithData:[signIn XMLForControlPort:28989] options:0 error:NULL];
+        assert([signInDocument.rootElement elementsForName:@"PlankSessionUser"].count == 0);
+        puts("macos_server_information=pass public_allowlist=1 no_media_claim=1 escaped_xml=1 bounded_query=1 nameless_occupancy=1 opted_in_account=1");
     }
 }

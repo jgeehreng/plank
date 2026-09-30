@@ -27,6 +27,7 @@
                            input:(id<PLANKMacInputDevice> (^)(void))input;
 // Start exactly once, after machine admission. Port zero is for qualification.
 - (BOOL)startOnPort:(uint16_t)port ready:(void (^)(uint16_t))ready failed:(void (^)(void))failed;
+- (void)setAdmissionTrust:(NSDictionary *)trust workstationUUID:(NSString *)workstationUUID;
 // Immediately closes launch admission. Completion waits for authentication,
 // capture, encoder, input receiver and native endpoint destruction. No main-
 // thread wait and no fixed delay in place of completion. Safe to call repeatedly.

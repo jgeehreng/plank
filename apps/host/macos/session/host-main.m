@@ -11,6 +11,7 @@
 #import "desktop-provisioning.h"
 #import "desktop-start.h"
 #import <AppKit/AppKit.h>
+#import <SystemConfiguration/SystemConfiguration.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/resource.h>
@@ -180,7 +181,8 @@ static int graphical(const char *service, NSString *role, NSString *directory, B
     close(fd);
     NSDictionary *config = publicConfiguration ?: (configBytes ? [NSPropertyListSerialization propertyListWithData:configBytes
         options:NSPropertyListImmutable format:NULL error:NULL] : nil);
-    if (![config isKindOfClass:NSDictionary.class] || config.count != 4 ||
+    BOOL publishSessionUser = NO;
+    if (![config isKindOfClass:NSDictionary.class] || !PLANKMacHostConfigurationCount(config, &publishSessionUser) ||
         ![config[@"Address"] isKindOfClass:NSString.class] || ![config[@"Name"] isKindOfClass:NSString.class] ||
         ![config[@"UUID"] isKindOfClass:NSString.class] || ![config[@"Port"] isKindOfClass:NSNumber.class] ||
         CFGetTypeID((__bridge CFTypeRef)config[@"Port"]) == CFBooleanGetTypeID() ||
@@ -198,9 +200,15 @@ static int graphical(const char *service, NSString *role, NSString *directory, B
     if (certificate) CFRelease(certificate);
     if (key) CFRelease(key);
     if (!identity) return startupFailure("tls-identity");
+    NSString *sessionUser = nil;
+    if (publishSessionUser && phase == PLANKMacScopeDesktop) {
+        uid_t console = (uid_t)-1;
+        sessionUser = CFBridgingRelease(SCDynamicStoreCopyConsoleUser(NULL, &console, NULL));
+        if (!sessionUser || console != getuid() || [sessionUser isEqualToString:@"loginwindow"]) sessionUser = nil;
+    }
     PLANKMacServerInformation *information = [[PLANKMacServerInformation alloc] initWithName:config[@"Name"]
         workstationUUID:[[NSUUID alloc] initWithUUIDString:config[@"UUID"]] version:@PLANK_MACOS_HOST_VERSION
-        streaming:YES occupied:(phase == PLANKMacScopeDesktop)];
+        streaming:YES occupied:(phase == PLANKMacScopeDesktop) sessionUser:sessionUser];
     PLANKMacFixedCapture *capture = [PLANKMacFixedCapture new];
     PLANKMacDesktopDisplay *desktopDisplay = phase == PLANKMacScopeSignIn ?
         [[PLANKMacDesktopDisplay alloc] initForSignIn] : [PLANKMacDesktopDisplay new];
@@ -262,6 +270,18 @@ static int graphical(const char *service, NSString *role, NSString *directory, B
             return [[PLANKMacScreenCapture alloc] initWithDesktopAudioTap:phase == PLANKMacScopeDesktop];
         }
         input:^id<PLANKMacInputDevice> { return [PLANKMacQuartzInput new]; }];
+    int admissionDirectory = open(directory.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (admissionDirectory < 0) return startupFailure("admission-configuration");
+    BOOL admissionPresent = faccessat(admissionDirectory, "admission.plist", F_OK, 0) == 0;
+    NSMutableData *admissionBytes = admissionPresent ? readPrivate(admissionDirectory, "admission.plist") : nil;
+    close(admissionDirectory);
+    NSDictionary *admission = nil;
+    if (admissionBytes) {
+        id parsed = [NSPropertyListSerialization propertyListWithData:admissionBytes options:NSPropertyListImmutable format:NULL error:NULL];
+        admission = [parsed isKindOfClass:NSDictionary.class] ? parsed : nil;
+    }
+    if (admissionPresent && !admission) return startupFailure("admission-configuration");
+    [runtime setAdmissionTrust:admission workstationUUID:config[@"UUID"]];
     runtime.prepareDisplay = ^BOOL(unsigned width, unsigned height, unsigned scale, NSString *encodingMode, BOOL (^valid)(void)) {
         if (!PLANKMacDesktopModeSupported(width, height)) return NO;
         dispatch_semaphore_t finished = dispatch_semaphore_create(0);
