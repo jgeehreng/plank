@@ -315,6 +315,18 @@ static int graphical(const char *service, NSString *role, NSString *directory, B
             return capture;
         }
         input:^id<PLANKMacInputDevice> { return [PLANKMacQuartzInput new]; }];
+    int admissionDirectory = open(directory.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (admissionDirectory < 0) return startupFailure("admission-configuration");
+    BOOL admissionPresent = faccessat(admissionDirectory, "admission.plist", F_OK, 0) == 0;
+    NSMutableData *admissionBytes = admissionPresent ? readPrivate(admissionDirectory, "admission.plist") : nil;
+    close(admissionDirectory);
+    NSDictionary *admission = nil;
+    if (admissionBytes) {
+        id parsed = [NSPropertyListSerialization propertyListWithData:admissionBytes options:NSPropertyListImmutable format:NULL error:NULL];
+        admission = [parsed isKindOfClass:NSDictionary.class] ? parsed : nil;
+    }
+    if (admissionPresent && !admission) return startupFailure("admission-configuration");
+    [runtime setAdmissionTrust:admission workstationUUID:config[@"UUID"]];
     runtime.prepareDisplay = ^BOOL(unsigned width, unsigned height, unsigned scale, NSString *encodingMode, BOOL (^valid)(void)) {
         if (!PLANKMacDesktopModeSupported(width, height)) return NO;
         dispatch_semaphore_t finished = dispatch_semaphore_create(0);

@@ -82,7 +82,9 @@ static NSString *publicSessionUser(NSString *name) {
         @[@"PlankTopologyVersion", _streaming ? @"13" : @"0"],
         @[@"PlankFeatureFlags", _streaming ? @"7897201" : @"0"],
         @[@"PairStatus", authorized ? @"1" : @"0"],
-        @[@"PlankOccupied", (_occupied || streamOccupied) ? @"1" : @"0"]
+        @[@"PlankOccupied", (_occupied || streamOccupied) ? @"1" : @"0"],
+        // Inventory only. This host does not send NDI. Not an admission field.
+        @[@"BroadcastSource", @"0"]
     ];
     for (NSArray *field in fields)
         [root addChild:[NSXMLNode elementWithName:field[0] stringValue:field[1]]];

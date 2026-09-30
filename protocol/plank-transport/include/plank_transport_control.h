@@ -34,6 +34,12 @@ typedef enum PlankTransportControlType {
     PLANK_TRANSPORT_CONTROL_SET_CAMERA = 10,
     PLANK_TRANSPORT_CONTROL_CAMERA_APPLIED = 11,
     PLANK_TRANSPORT_CONTROL_CAMERA_KEYFRAME = 12,
+    /* Uppercut extension, kept far from upstream's numbering (upstream now
+     * uses 8 for SET_MICROPHONE). Client to host. Two uint32 values: IPv4
+     * (first octet in the high byte) and the UDP video port in the low 16
+     * bits. High 16 bits of the port word must be 0. Audio uses the video
+     * port plus 2. No pixels. */
+    PLANK_TRANSPORT_CONTROL_BROADCAST_RECEIVE = 0x7F00,
 } PlankTransportControlType;
 
 #define PLANK_TRANSPORT_CAMERA_ENABLED 1u
