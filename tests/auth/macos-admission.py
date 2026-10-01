@@ -1,74 +1,150 @@
 #!/usr/bin/env python3
-"""Loopback Phase 0 admission gate. Synthetic account only. No passwords are printed."""
-import importlib.util
+"""Loopback macOS admission qualification. Synthetic credentials only.
+
+The probe reads an admission plist only from its temporary certificate
+directory. This does not start a Broker, reboot a host, or write
+require_admission into an installed Host configuration.
+"""
+import argparse
+import base64
+import http.client
+import io
 import json
 import os
 from pathlib import Path
-import plistlib
-import re
 import select
 import subprocess
-import sys
 import tempfile
+import time
 
 
-HOST = "f92140f5-8740-4b3b-82f7-74db5353de27"
-OTHER = "22222222-2222-4222-8222-222222222222"
+def uniqueid_matches(expected, actual):
+    """Same UUID predicate as the Host's plank_admission_uniqueid_matches()."""
+    if not isinstance(expected, str) or not isinstance(actual, str):
+        return False
+    left = expected.encode("utf-8")
+    right = actual.encode("utf-8")
+    hyphens = (8, 13, 18, 23)
+
+    def at(buf, index):
+        if index < len(buf):
+            return buf[index]
+        if index == len(buf):
+            return 0
+        return None
+
+    for index in range(36):
+        a = at(left, index)
+        b = at(right, index)
+        if a is None or b is None:
+            return False
+        if index in hyphens:
+            if a != ord("-") or b != ord("-"):
+                return False
+            continue
+        if ord("A") <= a <= ord("F"):
+            a = a - ord("A") + ord("a")
+        if ord("A") <= b <= ord("F"):
+            b = b - ord("A") + ord("a")
+        hex_a = (ord("0") <= a <= ord("9")) or (ord("a") <= a <= ord("f"))
+        hex_b = (ord("0") <= b <= ord("9")) or (ord("a") <= b <= ord("f"))
+        if not hex_a or not hex_b or a != b:
+            return False
+    return at(left, 36) == 0 and at(right, 36) == 0
 
 
-def load_https(source_root):
-    path = source_root / "tests/auth/macos-https-auth.py"
-    spec = importlib.util.spec_from_file_location("macos_https_auth", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def self_test():
+    same = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    other = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    assert uniqueid_matches(same, same)
+    assert uniqueid_matches(same.upper(), same)
+    assert uniqueid_matches(same, same.upper())
+    assert not uniqueid_matches(same, other)
+    assert not uniqueid_matches("not-a-uuid", "not-a-uuid")
+    assert not uniqueid_matches(same + "a", same)
+    assert not uniqueid_matches(same[:-1], same)
+    assert not uniqueid_matches("", "")
+    print("macos_admission_gate=pass")
 
 
-def mint(minter, *uniqueids):
-    result = subprocess.run([str(minter), *uniqueids], check=True, capture_output=True, text=True)
-    bundle = json.loads(result.stdout)
-    tickets = []
-    for ticket in bundle["tickets"]:
-        ticket["key_id"] = bundle["key_id"]
-        ticket["issuer"] = bundle["issuer"]
-        ticket["public_key"] = bundle["public_key"]
-        tickets.append(ticket)
-    return tickets
+class ResponseBytes:
+    def __init__(self, value):
+        self.value = value
+
+    def makefile(self, *args):
+        return io.BytesIO(self.value)
 
 
-def write_policy(directory, ticket, consume_dir):
-    policy = {
-        "RequireAdmission": True,
-        "MaxTTL": 900,
-        "ClockSkew": 60,
-        "ConsumeDirectory": str(consume_dir),
-        "Trust": [{
-            "KeyID": ticket["key_id"],
-            "Issuer": ticket["issuer"],
-            "PublicKey": ticket["public_key"],
-        }],
-    }
-    path = Path(directory) / "admission.plist"
-    with path.open("wb") as stream:
-        plistlib.dump(policy, stream)
-    os.chmod(path, 0o600)
+def tls_command(certificate, port):
+    return ["openssl", "s_client", "-connect", f"127.0.0.1:{port}", "-servername", "localhost",
+            "-CAfile", str(certificate), "-verify_return_error", "-verify", "1", "-tls1_3",
+            "-alpn", "http/1.1", "-quiet"]
 
 
-def start(executable, directory):
+def request(certificate, port, body=None, path="/plank/auth/start", raw=None, xml=False):
+    encoded = b"" if body is None else json.dumps(body).encode()
+    message = raw if raw is not None else (
+        f"POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\n"
+        f"Content-Length: {len(encoded)}\r\n\r\n".encode() + encoded
+    )
+    result = subprocess.run(tls_command(certificate, port), input=message, capture_output=True, timeout=7)
+    if result.returncode:
+        raise AssertionError("TLS request failed")
+    reply = http.client.HTTPResponse(ResponseBytes(result.stdout))
+    reply.begin()
+    content = reply.read()
+    if xml:
+        return reply.status, content
+    return reply.status, json.loads(content)
+
+
+def serverinfo_uniqueid(certificate, port):
+    raw = b"GET /serverinfo HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    status, content = request(certificate, port, raw=raw, xml=True)
+    if status != 200:
+        raise AssertionError("serverinfo failed")
+    marker = b"<uniqueid>"
+    start = content.find(marker)
+    end = content.find(b"</uniqueid>", start)
+    if start < 0 or end < 0:
+        raise AssertionError("serverinfo has no workstation id")
+    return content[start + len(marker):end].decode("ascii")
+
+
+def create_identity(temporary, config):
+    os.chmod(temporary, 0o700)
+    cert, key = Path(temporary) / "cert.pem", Path(temporary) / "key.pem"
+    subprocess.run(["openssl", "req", "-new", "-x509", "-newkey", "rsa:3072", "-sha256",
+                    "-nodes", "-days", "1", "-config", str(config), "-keyout", str(key),
+                    "-out", str(cert)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    os.chmod(key, 0o600)
+    subprocess.run(["openssl", "x509", "-in", str(cert), "-outform", "DER", "-out", str(Path(temporary) / "cert.der")],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    help_result = subprocess.run(["openssl", "rsa", "-help"], capture_output=True)
+    traditional = ["-traditional"] if b"-traditional" in help_result.stdout + help_result.stderr else []
+    subprocess.run(["openssl", "rsa", *traditional, "-in", str(key), "-outform", "DER",
+                    "-out", str(Path(temporary) / "key.der")],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    os.chmod(Path(temporary) / "key.der", 0o600)
+    return cert
+
+
+def start_server(executable, directory):
     process = subprocess.Popen([str(executable), directory], stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, text=True)
     if not select.select([process.stdout], [], [], 10)[0]:
         process.kill()
-        raise AssertionError("listener readiness timed out")
+        raise AssertionError("HTTPS listener readiness timed out")
     line = process.stdout.readline()
-    match = re.fullmatch(r"macos_https_auth_ready port=(\d+) desktop_active=1\n", line)
-    if not match:
+    prefix = "macos_https_auth_ready port="
+    if not line.startswith(prefix) or "desktop_active=1" not in line:
         process.kill()
-        raise AssertionError("listener did not report ready: " + line.strip())
-    return process, int(match[1])
+        raise AssertionError("HTTPS listener did not report ready")
+    port = int(line[len(prefix):].split()[0])
+    return process, port
 
 
-def stop(process):
+def stop_server(process):
     process.terminate()
     try:
         process.communicate(timeout=3)
@@ -77,81 +153,134 @@ def stop(process):
         process.communicate(timeout=3)
 
 
-def start_body(ticket=None):
+def consume_count(directory):
+    consumed = Path(directory) / "consumed"
+    if not consumed.exists():
+        return 0
+    return sum(1 for entry in consumed.iterdir() if entry.is_file())
+
+
+def payload_is_lowercase(bundle):
+    payload = bundle["admission"]["payload"]
+    if any(char in payload for char in "+/="):
+        return False
+    padded = payload + "=" * ((4 - len(payload) % 4) % 4)
+    raw = base64.urlsafe_b64decode(padded)
+    workstation = bundle["workstation_uniqueid"].lower().encode("ascii")
+    uppercase = bundle["workstation_uniqueid"].upper().encode("ascii")
+    if uppercase != workstation and uppercase in raw:
+        return False
+    return raw.startswith(b"PLAD") and raw[4:5] == b"\x01" and workstation in raw
+
+
+def load_bundle(path):
+    bundle = json.loads(Path(path).read_text())
+    if not payload_is_lowercase(bundle):
+        raise AssertionError("signed workstation id was not lowercase")
+    mode = Path(path).stat().st_mode & 0o777
+    if mode != 0o600:
+        raise AssertionError("bundle mode is not private")
+    return bundle
+
+
+def mint(mint_bin, directory):
+    result = subprocess.run([str(mint_bin), directory], capture_output=True, text=True, timeout=10)
+    if result.returncode or result.stdout != "mint_admission=pass\n":
+        raise AssertionError("mint failed")
+    plist = Path(directory) / "admission.plist"
+    if (plist.stat().st_mode & 0o777) != 0o600 or b"RequireAdmission" not in plist.read_bytes():
+        raise AssertionError("admission plist was not written")
+    return (load_bundle(Path(directory) / "bundle.json"),
+            load_bundle(Path(directory) / "bundle-case.json"),
+            load_bundle(Path(directory) / "bundle-other.json"))
+
+
+def post_start(certificate, port, admission=None):
     body = {"username": "synthetic", "start_desktop": True}
-    if ticket is not None:
-        body["admission"] = {"v": ticket["v"], "payload": ticket["payload"], "sig": ticket["sig"]}
-    return body
+    if admission is not None:
+        body["admission"] = admission
+    return request(certificate, port, body)
 
 
-def expect_rejected(https, tls, port, ticket=None):
-    status, result = https.request(tls, port, start_body(ticket))
-    assert status == 401 and result == {"state": "admission_rejected"}, (status, sorted(result))
+def qualify(executable, mint_bin, config):
+    self_test()
+    with tempfile.TemporaryDirectory(prefix="plank-macos-admission-") as temporary:
+        certificate = create_identity(temporary, config)
+        process, port = start_server(executable, temporary)
+        try:
+            if consume_count(temporary) != 0:
+                raise AssertionError("unmanaged probe created a consume record")
+            status, result = post_start(certificate, port)
+            if status != 200 or result.get("state") != "challenge":
+                raise AssertionError("unmanaged login changed")
+        finally:
+            stop_server(process)
 
+        match, case, other = mint(mint_bin, temporary)
+        process, port = start_server(executable, temporary)
+        try:
+            presented = serverinfo_uniqueid(certificate, port)
+            if not uniqueid_matches(match["workstation_uniqueid"], presented):
+                raise AssertionError("server workstation id does not match the bundle")
+            if not uniqueid_matches(case["workstation_uniqueid"], presented):
+                raise AssertionError("letter case did not match")
+            if uniqueid_matches(other["workstation_uniqueid"], presented):
+                raise AssertionError("different workstation id matched")
+            status, result = post_start(certificate, port)
+            if status != 401 or result.get("state") != "admission_rejected" or consume_count(temporary) != 0:
+                raise AssertionError("managed login without a ticket reached authentication")
+            # A different UUID stops before POST. The following request is the
+            # Host's own wrong-workstation check, not the Client gate.
+            stopped_before_post = not uniqueid_matches(other["workstation_uniqueid"], presented)
+            if not stopped_before_post:
+                raise AssertionError("different workstation id was sent")
+            status, result = post_start(certificate, port, other["admission"])
+            if status != 401 or result.get("state") != "admission_rejected" or consume_count(temporary) != 0:
+                raise AssertionError("wrong workstation id was consumed")
+            status, result = post_start(certificate, port, case["admission"])
+            if status != 200 or result.get("state") != "challenge" or consume_count(temporary) != 1:
+                raise AssertionError("case-only workstation id was rejected")
+            status, denied = request(certificate, port, {
+                "conversation_id": result["conversation_id"],
+                "responses": ["wrong-synthetic-secret"],
+                "start_desktop": True,
+            }, "/plank/auth/respond")
+            if status != 200 or denied.get("state") != "denied" or consume_count(temporary) != 1:
+                raise AssertionError("authentication failure removed the consume record")
+            status, result = post_start(certificate, port, case["admission"])
+            if status != 401 or result.get("state") != "admission_rejected" or consume_count(temporary) != 1:
+                raise AssertionError("same ticket was accepted after authentication failure")
+            status, result = post_start(certificate, port, match["admission"])
+            if status != 200 or result.get("state") != "challenge" or consume_count(temporary) != 2:
+                raise AssertionError("valid ticket did not reach authentication")
+        finally:
+            stop_server(process)
 
-def expect_challenge(https, tls, port, ticket=None):
-    status, result = https.request(tls, port, start_body(ticket))
-    assert status == 200 and result["state"] == "challenge", (status, result.get("state"))
-    return result
+        process, port = start_server(executable, temporary)
+        try:
+            status, result = post_start(certificate, port, match["admission"])
+            if status != 401 or result.get("state") != "admission_rejected" or consume_count(temporary) != 2:
+                raise AssertionError("worker restart accepted a consumed ticket")
+        finally:
+            stop_server(process)
+    print("macos_admission=pass unmanaged=1 managed_rejected=1 case_match=1 "
+          "wrong_host_not_consumed=1 stopped_before_post=1 auth_failure_consumed=1 "
+          "worker_restart_replay=1")
 
 
 def main():
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: macos-admission.py <source-root> <https-auth-synthetic> <mint-admission>")
-    source_root = Path(sys.argv[1])
-    executable = Path(sys.argv[2])
-    minter = Path(sys.argv[3])
-    https = load_https(source_root)
-    config = source_root / "probes/macos/https-cert.cnf"
-
-    with tempfile.TemporaryDirectory(prefix="plank-admission-unmanaged-") as temporary:
-        presented = mint(minter, HOST)[0]
-        cert = https.create_identity(temporary, config)
-        process, port = start(executable, temporary)
-        try:
-            expect_challenge(https, https.context(cert), port, presented)
-        finally:
-            stop(process)
-    print("unmanaged_presented_admission=ignored")
-
-    host_ticket, wrong_ticket, refund_ticket = mint(minter, HOST, OTHER, HOST)
-    with tempfile.TemporaryDirectory(prefix="plank-admission-managed-") as temporary, \
-            tempfile.TemporaryDirectory(prefix="plank-admission-consume-") as consume:
-        os.chmod(consume, 0o700)
-        cert = https.create_identity(temporary, config)
-        write_policy(temporary, host_ticket, consume)
-        process, port = start(executable, temporary)
-        try:
-            tls = https.context(cert)
-            expect_rejected(https, tls, port)
-            print("managed_missing_admission=rejected")
-            expect_rejected(https, tls, port, wrong_ticket)
-            assert not (Path(consume) / wrong_ticket["admission_id"]).exists()
-            print("wrong_workstation=rejected_not_consumed")
-            expect_challenge(https, tls, port, host_ticket)
-            assert (Path(consume) / host_ticket["admission_id"]).is_file()
-            print("valid_admission=consumed_then_challenge")
-            expect_rejected(https, tls, port, host_ticket)
-            print("replay=rejected")
-            challenge = expect_challenge(https, tls, port, refund_ticket)
-            status, denied = https.request(tls, port, {
-                "conversation_id": challenge["conversation_id"],
-                "responses": ["wrong-synthetic-secret"],
-            }, "/plank/auth/respond")
-            assert status == 200 and denied["state"] == "denied"
-            expect_rejected(https, tls, port, refund_ticket)
-            print("os_login_failure=not_refunded")
-        finally:
-            stop(process)
-
-        process, port = start(executable, temporary)
-        try:
-            expect_rejected(https, https.context(cert), port, host_ticket)
-            print("worker_restart=replay")
-        finally:
-            stop(process)
-
-    print("macos_admission=pass unmanaged=1 managed_missing=1 wrong_uniqueid=1 consumed=1 replay=1 restart=1 os_failure=1")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--server", type=Path)
+    parser.add_argument("--mint", type=Path)
+    parser.add_argument("--config", type=Path)
+    args = parser.parse_args()
+    if args.self_test:
+        self_test()
+        return
+    if not args.server or not args.mint or not args.config:
+        parser.error("qualification requires --server, --mint, and --config")
+    qualify(args.server, args.mint, args.config)
 
 
 if __name__ == "__main__":
