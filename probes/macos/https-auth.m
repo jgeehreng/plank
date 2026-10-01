@@ -164,6 +164,22 @@ int main(int argc, const char *argv[]) {
 #endif
 #endif
         CFRelease(identity);
+        NSString *admissionFile = [directory stringByAppendingPathComponent:@"admission.plist"];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:admissionFile]) {
+            NSData *admissionBytes = [NSData dataWithContentsOfFile:admissionFile];
+            id parsed = admissionBytes ? [NSPropertyListSerialization propertyListWithData:admissionBytes
+                options:NSPropertyListImmutable format:NULL error:NULL] : nil;
+            if (![parsed isKindOfClass:NSDictionary.class]) {
+                puts("macos_admission_configuration=rejected");
+                return 2;
+            }
+            NSString *workstation = @"f92140f5-8740-4b3b-82f7-74db5353de27";
+#ifdef PLANK_MAC_PREVIEW_TEST
+            [runtime setAdmissionTrust:parsed workstationUUID:workstation];
+#else
+            [server setAdmissionTrust:parsed workstationUUID:workstation];
+#endif
+        }
         void (^ready)(uint16_t) = ^(uint16_t port) {
             printf("macos_https_auth_ready port=%u desktop_active=%d\n", port, snapshot().active);
             fflush(stdout);
