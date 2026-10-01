@@ -40,6 +40,20 @@ PLANKMacAuthenticationResult PLANKMacVerifyAccountIsolated(
 }
 #endif
 
+// Optional admission.plist beside the qualification certificate. A missing file
+// leaves this probe unmanaged. It never writes an installed Host configuration.
+static BOOL loadQualificationAdmission(NSString *directory, NSDictionary **admission) {
+    *admission = nil;
+    NSString *path = [directory stringByAppendingPathComponent:@"admission.plist"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) return YES;
+    NSData *bytes = [NSData dataWithContentsOfFile:path];
+    id parsed = bytes ? [NSPropertyListSerialization propertyListWithData:bytes
+        options:NSPropertyListImmutable format:NULL error:NULL] : nil;
+    if (![parsed isKindOfClass:NSDictionary.class]) return NO;
+    *admission = parsed;
+    return YES;
+}
+
 int main(int argc, const char *argv[]) {
 #ifndef PLANK_SYNTHETIC_AUTH_TEST
     if (argc == 2 && !strcmp(argv[1], PLANK_MAC_ACCOUNT_WORKER_ARGUMENT)) return PLANKMacAccountWorkerMain();
@@ -103,9 +117,10 @@ int main(int argc, const char *argv[]) {
 #endif
         // Explicit synthetic workstation metadata, even for the real-account
         // test. Never publish the developer's machine name or hardware UUID.
+        NSString *workstationUUID = @"f92140f5-8740-4b3b-82f7-74db5353de27";
         PLANKMacServerInformation *information = [[PLANKMacServerInformation alloc]
             initWithName:@"PLANK Mac qualification" workstationUUID:
-                [[NSUUID alloc] initWithUUIDString:@"f92140f5-8740-4b3b-82f7-74db5353de27"]
+                [[NSUUID alloc] initWithUUIDString:workstationUUID]
             version:@"macos-host-qualification"];
 #ifdef PLANK_MAC_PREVIEW_TEST
         // Qualification uses the actual Host assembly, with an explicit
@@ -162,6 +177,16 @@ int main(int argc, const char *argv[]) {
             return topologyReady && valid();
         };
 #endif
+#endif
+        NSDictionary *admission = nil;
+        if (!loadQualificationAdmission(directory, &admission)) {
+            CFRelease(identity);
+            return 2;
+        }
+#ifdef PLANK_MAC_PREVIEW_TEST
+        [runtime setAdmissionTrust:admission workstationUUID:workstationUUID];
+#else
+        [server setAdmissionTrust:admission workstationUUID:workstationUUID];
 #endif
         CFRelease(identity);
         void (^ready)(uint16_t) = ^(uint16_t port) {
