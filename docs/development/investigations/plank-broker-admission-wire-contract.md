@@ -409,14 +409,14 @@ TCP to the routing address
   → existing isPlankCertificate profile
   → if the bundle has a pin: cert SHA-256 must match (same compare as hostrecovery expectedCertificate)
   → GET /serverinfo (no Bearer, no admission)
-  → uniqueid must equal the bundle workstation_uniqueid
-     (manual bookmarks: acceptsServerUuid)
+  → case-insensitive UUID match of uniqueid against the bundle workstation_uniqueid
+     (same comparison as the Host; the signed workstation id stays lowercase)
   → only then POST /plank/auth/start with username, start_desktop, admission
 ```
 
 The Broker address is not checked against a signed hostname. The signed bind is `uniqueid`. The TLS pin, when present, stops a different leaf at that address. Existing profile checks stay; the pin is additional when the bundle has one.
 
-If `/serverinfo` uniqueid mismatches, the Client stops. It does not send the admission (so a confused dial does not depend on the wrong Host being honest about not consuming).
+If `/serverinfo` uniqueid mismatches, the Client stops before `POST /plank/auth/start`. It does not send the admission (so a confused dial does not depend on the wrong Host being honest about not consuming). Letter case still matches. A different UUID does not.
 
 Linux `/serverinfo` is unauthenticated and already returns `uniqueid` (`nvhttp.cpp` `serverinfo`). Mac discovery returns `uniqueid` and does not return account identity (`server-information.m`).
 
@@ -622,7 +622,7 @@ No production Broker, IdP, or Duo. No QUIC changes.
 - One Ed25519 key pair generated outside the repo.
 - Public key and `key_id` configured on a test Host with `require_admission=true`, a max TTL, and a skew.
 - A file or stdin blob: canonical `PLAD` payload plus sig, wrapped as the JSON object in section 5.
-- Payload `workstation_uniqueid` equal to that Host's `uniqueid`.
+- Payload `workstation_uniqueid` stays lowercase. Letter case still matches that Host's `uniqueid`.
 - `expires_at` inside the Host window.
 
 ### Minimal code surfaces (later prompt, not this one)
@@ -633,7 +633,7 @@ No production Broker, IdP, or Duo. No QUIC changes.
 | Same | Mac `handlePath` before `startForPeer:`; allow `admission` in `plankMacAuthStartBody` |
 | Consume-set | Machine-stable store, purged by `expires_at` |
 | Config | `require_admission`, pins, max TTL, skew |
-| Client | If a test bundle is present: `/serverinfo` uniqueid (and optional pin) **then** add `admission` to the existing `postPlankJson("start", …)` body. Do not persist it. |
+| Client | If a test bundle is present: compare `/serverinfo` uniqueid with the same case-insensitive UUID match as the Host (and optional pin) **then** add `admission` to the existing `postPlankJson("start", …)` body. A different UUID stops before that POST. Do not persist the admission. |
 | Tests | Accept, reject bad sig, reject wrong uniqueid without consume, second `auth/start` replay, PAM-failure-still-consumed, unmanaged Host ignores field |
 
 ---
