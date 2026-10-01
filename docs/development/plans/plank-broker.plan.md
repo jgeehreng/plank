@@ -39,6 +39,9 @@ submodule. Host and Client changes stay here.
   ownership.
 - One artist operation: request a connection to a workstation. That authorizes,
   reserves, and signs. Releasing a reservation does not end a stream.
+- Admins assign which facility principals may request which workstations.
+  That assignment lives on the Broker. The Host still sees only the signed
+  admission.
 - Key removal is a Host configuration change. There is no online revoke channel
   in v1. Unconsumed tickets die at `expires_at`.
 
@@ -93,16 +96,32 @@ admin mint.
 - It is not an OS user, a UID, or a Host session token.
 - OS passwords and PAM conversations never appear in Broker requests, logs,
   or storage.
-- Roles needed for v1: a person who may request a workstation, and an
-  admin who may enroll a Host and mint or revoke an unconsumed reservation.
+- Roles needed for v1: a person who may request an assigned workstation, and
+  an admin who may enroll a Host, assign that access, and revoke an
+  unconsumed reservation.
 
-## Phase 3 — Request a connection
+## Phase 3 — Who may request which workstation
+
+A small admin UI on the Broker. One screen: workstations and the facility
+principals who may request each one.
+
+- Grant or remove a principal's permission to request a workstation.
+- The stored pair is the facility principal and the workstation `uniqueid`.
+  Display names are labels. The OS account is not the grant.
+- A principal with no grant for that workstation cannot request it.
+- Removing a grant blocks a new request. An admission already consumed, and
+  an active stream, continue until they end on their own.
+- Phase 1's direct mint remains the enrollment tool. After this phase,
+  ordinary access changes happen here, and requesting a connection is what
+  signs the ticket.
+
+## Phase 4 — Request a connection
 
 One operation, authenticated by the facility session:
 
 ```text
 request connection to workstation uniqueid
-  → authorize the principal for that workstation
+  → the principal is assigned to that workstation
   → atomic reservation
   → sign one admission
   → return a memory bundle
@@ -131,7 +150,7 @@ Rules:
 This phase changes the Client in this repository. It does not change
 `/plank/auth/respond`, launch, resume, or QUIC.
 
-## Phase 4 — Per-Host enforcement
+## Phase 5 — Per-Host enforcement
 
 - Enroll Hosts one at a time. Inventory and a pinned key with
   `require_admission=false` changes nothing for current Clients.
@@ -162,8 +181,9 @@ Broker private key on a Host, or a Host private key on the Broker.
 
 ## Done when
 
-A person signs in through the existing identity provider and Duo, is given
-one workstation, and receives a short-lived admission. The Client checks
+A person signs in through the existing identity provider and Duo, requests a
+workstation an admin assigned to them, and receives a short-lived admission.
+The Client checks
 that workstation's `uniqueid`, then the Host verifies and consumes the
 admission and continues with today's OS login and today's stream. Another
 person cannot use the same ticket. The wrong Host rejects it without
