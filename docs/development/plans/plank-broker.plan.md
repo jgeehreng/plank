@@ -117,7 +117,20 @@ principals who may request each one.
 
 ## Phase 4 — Request a connection
 
-One operation, authenticated by the facility session:
+Which facility principals may request which workstation `uniqueid`.
+
+One screen, for the admin role from Phase 2:
+
+- The screen lists enrolled workstations by `uniqueid` and display name.
+- The admin grants or removes a principal's permission to request that
+  workstation.
+- A grant is not a reservation, a signed admission, or an OS login.
+- This screen does not request a connection.
+
+## Phase 4 — Request a connection
+
+One operation, authenticated by the facility session. The principal must
+already be allowed to request that workstation `uniqueid`.
 
 ```text
 request connection to workstation uniqueid
