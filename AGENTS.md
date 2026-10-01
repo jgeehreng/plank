@@ -265,3 +265,38 @@ Retain upstream commit references when cherry-picking. Pull requests should
 describe affected host/client behavior, security implications, target hardware
 tested, commands or procedures run, and any known fallback. Include screenshots
 for UI changes and link the relevant plan phase or issue.
+
+## Cursor Cloud specific instructions
+
+Cloud agents use the default Ubuntu image. Rust 1.89.0 from `rust-toolchain.toml`
+is already present, including clippy and rustfmt. This image is not the Rocky
+Linux 9.7 Host builder or the Ubuntu 26.04 Client builder, so
+`scripts/ci/install-linux-deps.sh`, `scripts/package/build-host-rpm.sh`, and
+`scripts/package/build-client-deb.sh` are out of scope here. Host and Client
+GUI sessions need the qualified hardware and OS documented in
+`docs/development/build/from-source.md`.
+
+The environment install initializes `third_party/kyber-kymux`, `apps/host/linux`
+with its recursive submodules, and the Client `moonlight-common-c` and
+`qmdnsengine` submodules, then fetches the locked transport crates. A leading
+`-` from `git submodule status` means that initialization still needs to run.
+
+Repository checks that do not need a GPU, a display, or macOS:
+
+```bash
+python3 -m unittest discover -s tests/ci -v
+python3 tests/network/test_datagram_sender.py
+qualification_build="${PLANK_WORK_ROOT:-${XDG_CACHE_HOME:-${HOME}/.cache}/plank-build/work}/qualification"
+cmake -S . -B "$qualification_build" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPLANK_BUILD_LINUX_QUALIFICATION=OFF
+cmake --build "$qualification_build" --parallel
+ctest --test-dir "$qualification_build" --output-on-failure
+cargo test --locked --manifest-path protocol/plank-transport/Cargo.toml
+PLANK_TRANSPORT_DURATION=1 PLANK_TRANSPORT_BITRATE_BPS=1000000 bash scripts/test/run-plank-transport-loopback.sh
+```
+
+`-DPLANK_BUILD_LINUX_QUALIFICATION=OFF` is the documented repository-structure
+gate and skips hardware probes that require NVIDIA headers. The loopback script
+is the runnable transport client and server: it exchanges authenticated video,
+audio, and input on localhost, then checks token and connection-role rejection.
+Qt client checks over SSH still require `QT_QPA_PLATFORM=offscreen` when a
+Client build exists; this image does not provide Qt 6.10.2.
