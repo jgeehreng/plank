@@ -98,7 +98,7 @@ Meaning, unchanged:
 | `key_id` | UTF-8 | 1–64 bytes. Same charset. Selects the Host's pinned public key. **Not** an algorithm name. |
 | `admission_id` | UUID | Canonical lowercase `8-4-4-4-12`. Unique per issued ticket. |
 | `subject` | UTF-8 | 1–256 bytes. Facility principal id. No U+0000, CR, or LF. Host must not treat it as a UID or OS username. |
-| `workstation_uniqueid` | UUID | Canonical lowercase UUID. Must equal this Host's persisted `uniqueid`. |
+| `workstation_uniqueid` | UUID | Canonical lowercase UUID. Matches this Host's persisted `uniqueid`, ignoring letter case. |
 | `issued_at` | decimal | ASCII Unix seconds, no sign, no fraction, no leading zeros except `0`. |
 | `expires_at` | decimal | Same. Must be greater than `issued_at`. |
 | `audience` | literal | Exactly `plank-host`. |
@@ -161,7 +161,7 @@ Field order:
 Rules:
 
 - No extra bytes before, between, or after the nine fields.
-- `admission_id` and `workstation_uniqueid` are exactly 36 ASCII bytes, lowercase hex and hyphens, matching Linux `uuid_t::string()` / Mac `UUIDString.lowercaseString`. The signed field stays lowercase. A Host whose persisted `uniqueid` differs only by letter case still matches; a different UUID does not.
+- `admission_id` and `workstation_uniqueid` are exactly 36 ASCII bytes, lowercase hex and hyphens, matching Linux `uuid_t::string()` / Mac `UUIDString.lowercaseString`. The signed field stays lowercase. A Host whose persisted `uniqueid` differs only by letter case still matches; a different UUID does not. The Client uses that same comparison against `/serverinfo` before `POST /plank/auth/start`.
 - `audience` is the 10 ASCII bytes `plank-host`.
 - `purpose` is the 15 ASCII bytes `connect-attempt`.
 - Timestamps are ASCII digits only.
