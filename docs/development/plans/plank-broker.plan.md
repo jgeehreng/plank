@@ -96,9 +96,22 @@ admin mint.
 - Roles needed for v1: a person who may request a workstation, and an
   admin who may enroll a Host and mint or revoke an unconsumed reservation.
 
-## Phase 3 — Request a connection
+## Phase 3 — One-screen admin UI
 
-One operation, authenticated by the facility session:
+Which facility principals may request which workstation `uniqueid`.
+
+One screen, for the admin role from Phase 2:
+
+- The screen lists enrolled workstations by `uniqueid` and display name.
+- The admin grants or removes a principal's permission to request that
+  workstation.
+- A grant is not a reservation, a signed admission, or an OS login.
+- This screen does not request a connection.
+
+## Phase 4 — Request a connection
+
+One operation, authenticated by the facility session. The principal must
+already be allowed to request that workstation `uniqueid`.
 
 ```text
 request connection to workstation uniqueid
@@ -131,7 +144,7 @@ Rules:
 This phase changes the Client in this repository. It does not change
 `/plank/auth/respond`, launch, resume, or QUIC.
 
-## Phase 4 — Per-Host enforcement
+## Phase 5 — Per-Host enforcement
 
 - Enroll Hosts one at a time. Inventory and a pinned key with
   `require_admission=false` changes nothing for current Clients.
