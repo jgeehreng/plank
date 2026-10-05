@@ -29,8 +29,10 @@ submodule. Host and Client changes stay here.
   or the OS password. The admission stays in memory.
 - `require_admission` is per Host and defaults false. A Client cannot turn it
   off. Rollback is setting it back to false. Active QUIC is left alone.
-- The facility network already routes the Client to the workstation. The
-  bundle carries that address as a hint. The Broker does not create a path.
+- The Broker can open a packet relay for TCP and UDP 28989. The bundle
+  address is that relay when one is configured, and the workstation's private
+  address otherwise. QUIC still ends on the Host. The relay stays up for the
+  stream.
 - Facility login uses the existing identity provider and Duo. OS passwords
   never enter the Broker. A suggested OS username may prefill the Client and
   grants nothing.
@@ -130,7 +132,8 @@ request connection to workstation uniqueid
 The bundle contains the admission wrapper, the routing address, the
 workstation `uniqueid`, `expires_at` for display, and the optional
 certificate pin. It does not contain `request_id`. The Host never sees
-`request_id`.
+`request_id`. When `PLANK_RELAY_ADVERTISE` is set, the routing address is
+the relay that forwards TCP and UDP 28989 to the enrolled workstation.
 
 Rules:
 
@@ -140,7 +143,10 @@ Rules:
 - Retry of the same client request id returns the original bundle and does
   not reserve twice.
 - Release frees the workstation at the Broker. It does not consume or refund
-  the Host record, and it does not stop QUIC.
+  the Host record, and it does not stop QUIC. When the bundle address is a
+  relay, release also closes that forward. The forward stays up after the
+  reservation deadline so the stream can continue, and it closes after 15
+  minutes with no bytes.
 - The Client stores the bundle in the memory already used by
   `NvHTTP::setAdmissionBundle`. Replace `PLANK_ADMISSION_BUNDLE` as the
   normal path. Keep that environment variable only as a development injector.
@@ -174,7 +180,7 @@ This phase changes the Client in this repository. It does not change
 
 ## Out of scope
 
-VPN or other overlay. Media relay. Replacing PAM, Open Directory, seat
+VPN or other overlay. Decoding or transcoding the stream. Replacing PAM, Open Directory, seat
 checks, takeover, or `start_desktop`. An allowlist inside PLANK. Client
 certificates. Online admission checks. Pairing, UPnP, or ENet. Putting the
 Broker private key on a Host, or a Host private key on the Broker.
