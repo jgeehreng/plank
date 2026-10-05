@@ -144,9 +144,20 @@ echo "client_plank_transport_rust_input_gate=pass"
 # The PLANK client must not contact upstream Moonlight services or
 # offer help actions that leave the appliance UI. Network reachability is
 # evaluated against the configured workstation and its selected route only.
-if rg -n 'moonlight-stream\.org/compatibility|qt\.conntest\.moonlight-stream\.org|stun\.moonlight-stream\.org|moonlight-docs|Qt\.openUrlExternally|Dialog\.Help|helpUrl' \
+# FacilitySignInView.qml's Qt.openUrlExternally call is the one approved
+# exception: it opens the broker's own loopback sign-in URL for the browser
+# login step, never an upstream Moonlight domain, so it is excluded here
+# rather than banning the API outright.
+if rg -n 'moonlight-stream\.org/compatibility|qt\.conntest\.moonlight-stream\.org|stun\.moonlight-stream\.org|moonlight-docs|Dialog\.Help|helpUrl' \
   "$source_dir/app" \
   --glob '!**/languages/**'; then
+  echo "upstream Moonlight network or help integration remains in PLANK client" >&2
+  exit 1
+fi
+if rg -n 'Qt\.openUrlExternally' \
+  "$source_dir/app" \
+  --glob '!**/languages/**' \
+  --glob '!**/FacilitySignInView.qml'; then
   echo "upstream Moonlight network or help integration remains in PLANK client" >&2
   exit 1
 fi
