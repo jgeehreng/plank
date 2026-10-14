@@ -124,7 +124,10 @@ class ReconnectPresentation(unittest.TestCase):
         self.assertIn("PLANK reconnect stopped on the sign-in layout after the desktop was open", session)
         self.assertIn("Returning to the sign-in screen after logout", session)
         self.assertIn('You have logged out of the workstation.', session)
-        self.assertIn('{"start_desktop", startDesktop}', http)
+        # Upstream Hosts accept exactly {username}, so the Client sends the flag
+        # only when it is false (missing means true).
+        self.assertIn('startBody.insert(QStringLiteral("start_desktop"), false)', http)
+        self.assertIn('respondBody.insert(QStringLiteral("start_desktop"), false)', http)
 
     def test_completion_clears_status_and_wait_restores_it(self):
         finish = between(session, "bool Session::finishPlankReconnect", "class PlankReconnectThread")
