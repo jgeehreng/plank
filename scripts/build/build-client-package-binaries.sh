@@ -1652,6 +1652,23 @@ cleanup_policy_test
 trap - EXIT
 echo "client_administrator_policy_test=pass"
 
+# Uppercut: broker heartbeat policy (plain C++, no Qt).
+broker_heartbeat_build=$(mktemp -d --tmpdir plank-client-broker-heartbeat.XXXXXX)
+cleanup_broker_heartbeat_test() {
+  if [[ -d ${broker_heartbeat_build} ]]; then
+    find "$broker_heartbeat_build" -xdev -depth -mindepth 1 -delete
+    rmdir "$broker_heartbeat_build"
+  fi
+}
+trap cleanup_broker_heartbeat_test EXIT
+qmake6 "$source_dir/tests/brokerheartbeat/brokerheartbeat.pro" \
+  -o "$broker_heartbeat_build/Makefile"
+make -C "$broker_heartbeat_build" -j"$(nproc)"
+"$broker_heartbeat_build/brokerheartbeat"
+cleanup_broker_heartbeat_test
+trap - EXIT
+echo "client_broker_heartbeat_policy_test=pass"
+
 packed_test_build=$(mktemp -d --tmpdir plank-client-packed-test.XXXXXX)
 cleanup_packed_test() {
   if [[ -d ${packed_test_build} ]]; then
