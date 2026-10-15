@@ -76,6 +76,10 @@ if rg -q 'pam_succeed_if|ingroup|remote-desktop-users' "$pam_policy"; then
   echo 'PLANK PAM policy still contains product-specific account authorization' >&2
   exit 1
 fi
+if rg -q '^[[:space:]]*[a-z]+[[:space:]].*pam_gnome_keyring' "$pam_policy"; then
+  echo 'PLANK PAM policy starts a keyring in the short sign-in session; the GNOME desktop would end with it' >&2
+  exit 1
+fi
 if rg -q '^CapabilityBoundingSet=.*CAP_(SETUID|SETGID|KILL)' "$unit"; then
   echo 'machine Sender retained obsolete identity-switching capabilities' >&2
   exit 1
