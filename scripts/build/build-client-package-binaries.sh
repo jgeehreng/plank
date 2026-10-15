@@ -1669,6 +1669,23 @@ cleanup_broker_heartbeat_test
 trap - EXIT
 echo "client_broker_heartbeat_policy_test=pass"
 
+# Uppercut: broker connection addresses (HTTPS beyond this computer).
+broker_address_build=$(mktemp -d --tmpdir plank-client-broker-address.XXXXXX)
+cleanup_broker_address_test() {
+  if [[ -d ${broker_address_build} ]]; then
+    find "$broker_address_build" -xdev -depth -mindepth 1 -delete
+    rmdir "$broker_address_build"
+  fi
+}
+trap cleanup_broker_address_test EXIT
+qmake6 "$source_dir/tests/brokeraddress/brokeraddress.pro" \
+  -o "$broker_address_build/Makefile"
+make -C "$broker_address_build" -j"$(nproc)"
+"$broker_address_build/brokeraddress"
+cleanup_broker_address_test
+trap - EXIT
+echo "client_broker_address_test=pass"
+
 packed_test_build=$(mktemp -d --tmpdir plank-client-packed-test.XXXXXX)
 cleanup_packed_test() {
   if [[ -d ${packed_test_build} ]]; then
