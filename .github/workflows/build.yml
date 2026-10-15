@@ -176,6 +176,14 @@ jobs:
           operation: save
           product: macos-${{ matrix.product }}
       - run: bash scripts/ci/build.sh macos-${{ matrix.product }}
+      - name: Upload the ad-hoc test client (CI branch only)
+        if: ${{ matrix.product == 'client' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-client-test-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.PLANK_ARTIFACT_ROOT }}/test-client/
+          if-no-files-found: error
+          retention-days: 7
       - name: Explain unsigned build scope
         run: echo 'Unsigned compile/test only. No distributable macOS package, signing credentials, or hardware acceptance.' >> "$GITHUB_STEP_SUMMARY"
       - name: Report disk usage

@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Temporary CI-branch diagnostics: surface the end of a failed build as an
+# annotation, because job logs are not readable from the review session.
+plank_diag_log="${RUNNER_TEMP:-/tmp}/plank-build-diagnostics.log"
+exec > >(tee "$plank_diag_log") 2>&1
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then sleep 2; enc() { python3 -c "import sys; print(\"%0A\".join(l.rstrip(\"\r\n\")[:220].replace(\"%\",\"%25\") for l in sys.stdin))"; }; printf "::error title=build errors::%s\n" "$(grep -nE "error:|Error |FAIL|Traceback|Assert|undefined|cannot find|not found|No such|\*\*\*" "$plank_diag_log" | grep -v thiserror | tail -n 40 | enc)"; printf "::error title=build tail::%s\n" "$(tail -n 30 "$plank_diag_log" | enc)"; fi' EXIT
 role=${1:?product role required}
 export CARGO_HOME="$PLANK_CARGO_ROOT" RUSTUP_HOME="$PLANK_RUSTUP_ROOT"
 export PATH="$CARGO_HOME/bin:$PATH"
@@ -49,6 +54,17 @@ case $role in
       bash "$PLANK_SOURCE_ROOT/scripts/package/build-macos-client-pkg.sh" "$PLANK_SOURCE_ROOT" "$PLANK_WORK_ROOT/client-package"
     else
       bash "$PLANK_SOURCE_ROOT/scripts/build/build-macos-client.sh" "$PLANK_SOURCE_ROOT" "$PLANK_WORK_ROOT/client-build"
+      # CI-branch only: an ad-hoc-signed test app for hands-on testing. Not a
+      # distributable package; no Developer ID, notarization or installer.
+      test_root="$PLANK_ARTIFACT_ROOT/test-client"
+      test_app="$test_root/PLANK Client Broker Test.app"
+      mkdir -p "$test_root"
+      ditto "$PLANK_WORK_ROOT/client-build/app/plank-client.app" "$test_app"
+      "$PLANK_QT_ROOT/bin/macdeployqt" "$test_app" "-qmldir=$PLANK_SOURCE_ROOT/apps/client/app/gui" -always-overwrite
+      codesign --force --deep --sign - "$test_app"
+      codesign --verify --deep --strict "$test_app"
+      otool -L "$test_app/Contents/MacOS/plank-client" | tail -n +2 | grep -E '^[[:space:]]+/(Users|opt|usr/local)/' && echo "::warning::test app links outside its bundle"
+      (cd "$test_root" && ditto -c -k --keepParent "PLANK Client Broker Test.app" plank-client-broker-test.zip && rm -rf "PLANK Client Broker Test.app")
     fi
     ;;
   *) exit 2 ;;
