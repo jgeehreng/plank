@@ -54,6 +54,33 @@ int main() {
   active.remote = true;
   if (session::desktop_stage(attached, active) != "unknown") return 26;
   if (session::confirmed_desktop_stage() != "unknown") return 27;
+  const auto owner = attached;
+  const std::optional<session::descriptor_t> attested {owner};
+  const std::optional<session::descriptor_t> current {owner};
+  using access = session::desktop_account_access_e;
+  if (session::desktop_account_access(owner.uid, true, attested, current) !=
+      access::allowed) return 28;
+  auto greeter = owner;
+  greeter.session_class = "greeter";
+  if (session::desktop_account_access(
+        owner.uid, true, std::optional {greeter}, std::optional {greeter}
+      ) != access::allowed) return 29;
+  auto someone_else = owner;
+  someone_else.uid = owner.uid + 1;
+  if (session::desktop_account_access(
+        owner.uid, true, std::optional {someone_else}, std::optional {someone_else}
+      ) != access::wrong_account) return 30;
+  auto replacement = owner;
+  replacement.id = "replacement";
+  if (session::desktop_account_access(
+        owner.uid, true, attested, std::optional {replacement}
+      ) != access::pending) return 31;
+  if (session::desktop_account_access(owner.uid, true, std::nullopt, current) !=
+      access::pending) return 32;
+  if (session::desktop_account_access(0, true, attested, current) !=
+        access::wrong_account ||
+      session::desktop_account_access(owner.uid, false, attested, current) !=
+        access::wrong_account) return 33;
   auto descriptor = valid_session();
   if (!session::eligible_graphical_session(descriptor)) {
     std::cerr << "active local seat0 X11 user was rejected\n";
@@ -90,6 +117,22 @@ int main() {
       parsed_display->account_uid != display_request.account_uid) {
     std::cerr << "display request did not round trip\n";
     return 11;
+  }
+  const session::display_request_t start_user {
+    session::display_request_t::action_t::start_user, {}, {}, {}, 1000
+  };
+  const auto start_user_message = session::display_request_message(start_user);
+  const auto parsed_start_user = session::parse_display_request(start_user_message);
+  if (!parsed_start_user ||
+      parsed_start_user->action != session::display_request_t::action_t::start_user ||
+      parsed_start_user->account_uid != 1000 ||
+      !parsed_start_user->layout.empty() ||
+      !session::display_request_message({
+        session::display_request_t::action_t::start_user,
+        "single", {}, {}, 1000
+      }).empty()) {
+    std::cerr << "user-session start request did not round trip\n";
+    return 16;
   }
   const session::runtime_display_state_t runtime_state {
     "single", "2560x1600", {}, 1000

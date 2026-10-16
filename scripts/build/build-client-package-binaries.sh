@@ -150,9 +150,20 @@ echo "client_plank_transport_rust_input_gate=pass"
 # The PLANK client must not contact upstream Moonlight services or
 # offer help actions that leave the appliance UI. Network reachability is
 # evaluated against the configured workstation and its selected route only.
-if rg -n 'moonlight-stream\.org/compatibility|qt\.conntest\.moonlight-stream\.org|stun\.moonlight-stream\.org|moonlight-docs|Qt\.openUrlExternally|Dialog\.Help|helpUrl' \
+# FacilitySignInView.qml's Qt.openUrlExternally call is the one approved
+# exception: it opens the broker's own loopback sign-in URL for the browser
+# login step, never an upstream Moonlight domain, so it is excluded here
+# rather than banning the API outright.
+if rg -n 'moonlight-stream\.org/compatibility|qt\.conntest\.moonlight-stream\.org|stun\.moonlight-stream\.org|moonlight-docs|Dialog\.Help|helpUrl' \
   "$source_dir/app" \
   --glob '!**/languages/**'; then
+  echo "upstream Moonlight network or help integration remains in PLANK client" >&2
+  exit 1
+fi
+if rg -n 'Qt\.openUrlExternally' \
+  "$source_dir/app" \
+  --glob '!**/languages/**' \
+  --glob '!**/FacilitySignInView.qml'; then
   echo "upstream Moonlight network or help integration remains in PLANK client" >&2
   exit 1
 fi
@@ -1640,6 +1651,40 @@ QT_QPA_PLATFORM=offscreen "$policy_test_build/plankclientpolicy"
 cleanup_policy_test
 trap - EXIT
 echo "client_administrator_policy_test=pass"
+
+# Uppercut: broker heartbeat policy (plain C++, no Qt).
+broker_heartbeat_build=$(mktemp -d --tmpdir plank-client-broker-heartbeat.XXXXXX)
+cleanup_broker_heartbeat_test() {
+  if [[ -d ${broker_heartbeat_build} ]]; then
+    find "$broker_heartbeat_build" -xdev -depth -mindepth 1 -delete
+    rmdir "$broker_heartbeat_build"
+  fi
+}
+trap cleanup_broker_heartbeat_test EXIT
+qmake6 "$source_dir/tests/brokerheartbeat/brokerheartbeat.pro" \
+  -o "$broker_heartbeat_build/Makefile"
+make -C "$broker_heartbeat_build" -j"$(nproc)"
+"$broker_heartbeat_build/brokerheartbeat"
+cleanup_broker_heartbeat_test
+trap - EXIT
+echo "client_broker_heartbeat_policy_test=pass"
+
+# Uppercut: broker connection addresses (HTTPS beyond this computer).
+broker_address_build=$(mktemp -d --tmpdir plank-client-broker-address.XXXXXX)
+cleanup_broker_address_test() {
+  if [[ -d ${broker_address_build} ]]; then
+    find "$broker_address_build" -xdev -depth -mindepth 1 -delete
+    rmdir "$broker_address_build"
+  fi
+}
+trap cleanup_broker_address_test EXIT
+qmake6 "$source_dir/tests/brokeraddress/brokeraddress.pro" \
+  -o "$broker_address_build/Makefile"
+make -C "$broker_address_build" -j"$(nproc)"
+"$broker_address_build/brokeraddress"
+cleanup_broker_address_test
+trap - EXIT
+echo "client_broker_address_test=pass"
 
 packed_test_build=$(mktemp -d --tmpdir plank-client-packed-test.XXXXXX)
 cleanup_packed_test() {

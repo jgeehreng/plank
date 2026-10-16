@@ -115,7 +115,8 @@ def discovery(tls, port):
                 "HttpsPort": str(port), "PlankHostMetadataVersion": "1",
                 "PlankHostVersion": "macos-host-qualification", "PlankAuth": "1",
                 "ServerCodecModeSupport": "0", "PlankTopologyVersion": "0",
-                "PlankFeatureFlags": "0", "PairStatus": "0", "PlankOccupied": "0"}
+                "PlankFeatureFlags": "0", "PairStatus": "0", "PlankOccupied": "0",
+                "BroadcastSource": "0"}
     assert len(root) == len(expected) and {node.tag: node.text for node in root} == expected
     # Discovery is public. Occupancy is a nameless bit only; it must not
     # expose an account, UID, or an alternative GET authentication path.
@@ -414,8 +415,18 @@ def synthetic(executable, config, receiver=None):
             status, denied = request(tls, port, {"conversation_id": start["conversation_id"],
                                                "responses": ["wrong-synthetic-secret"]}, "/plank/auth/respond")
             assert status == 200 and denied["state"] == "denied"
+            for body in ({"username": "synthetic", "start_desktop": True},
+                         {"username": "synthetic", "start_desktop": False}):
+                status, start = request(tls, port, body)
+                assert status == 200 and start["state"] == "challenge"
+            status, denied = request(tls, port, {"conversation_id": start["conversation_id"],
+                                               "responses": ["wrong-synthetic-secret"],
+                                               "start_desktop": True}, "/plank/auth/respond")
+            assert status == 200 and denied["state"] == "denied"
             for body, path in [([], "/plank/auth/start"), ({"username": 3}, "/plank/auth/start"),
                                ({"username": "synthetic", "extra": 1}, "/plank/auth/start"),
+                               ({"username": "synthetic", "start_desktop": 1}, "/plank/auth/start"),
+                               ({"username": "synthetic", "start_desktop": "true"}, "/plank/auth/start"),
                                ({"conversation_id": "x", "responses": ["a", "b"]}, "/plank/auth/respond")]:
                 status, result = request(tls, port, body, path)
                 assert status == 400 and result["state"] == "denied"

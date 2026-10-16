@@ -2,6 +2,11 @@
 # PLANK delegates authentication, account authorization, credentials,
 # and session lifecycle to the host's standard PAM/SSSD policy. The broker
 # enforces security.allow_root_login before entering this stack.
+#
+# No pam_gnome_keyring here: this session only lasts for the sign-in. A
+# keyring daemon started in it would be adopted by the GNOME desktop that
+# GDM starts next, and the desktop would end when this session's scope did.
+# GDM's own stack starts and unlocks the keyring inside the desktop session.
 auth       substack     system-auth
 
 account    include      system-auth

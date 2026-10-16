@@ -20,7 +20,7 @@ mkdir -p "$preview_build"
 [[ -z $(ls -A "$preview_build") ]]
 cd "$source_root"
 common=(-mmacosx-version-min=27.0 -fobjc-arc -Wall -Wextra -Werror
-    -Iapps/host/macos/auth -Iapps/host/macos/control -Iapps/host/macos/media -Iapps/host/macos/input -Iapps/host/macos/session -Itests/input -Iprotocol/plank-transport/include
+    -Iapps/host/macos/auth -Iapps/host/macos/control -Iapps/host/macos/media -Iapps/host/macos/input -Iapps/host/macos/session -Iapps/host/linux/src/auth -Itests/input -Iprotocol/plank-transport/include
     -framework Foundation -framework Security -framework SystemConfiguration -framework CoreFoundation
     -framework CoreGraphics -framework AppKit -framework Network -framework CoreMedia
     -framework CoreVideo -framework ScreenCaptureKit -framework VideoToolbox -framework AudioToolbox -framework CoreAudio
@@ -30,6 +30,7 @@ sources=(apps/host/macos/auth/authentication-session.m apps/host/macos/auth/grap
     apps/host/macos/session/host-runtime.m
     apps/host/macos/control/http-request.m apps/host/macos/control/server-information.m
     apps/host/macos/control/fixed-capture.m apps/host/macos/control/https-auth-server.m
+    apps/host/linux/src/auth/plank_admission.c
     apps/host/macos/media/native-video.m apps/host/macos/media/preview-session.m apps/host/macos/media/clipboard-sync.m apps/host/macos/media/screen-capture.m apps/host/macos/audio-device/output-route.m
     apps/host/macos/media/camera-session.m apps/host/macos/camera-device/camera-producer.m apps/host/macos/camera-device/camera-signing.m \
     apps/host/macos/media/reverse-media-clock.m apps/host/macos/media/microphone-session.m apps/host/macos/audio-device/microphone-producer.m

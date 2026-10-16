@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #import "https-auth-server.h"
 #import "http-request.h"
+#import "plank_admission.h"
+#include <time.h>
 #import <Network/Network.h>
 #include <arpa/inet.h>
 #include <sys/resource.h>
-#include <time.h>
 #include <stdatomic.h>
 
 @interface PLANKMacHTTPSRequest : NSObject {
@@ -20,6 +21,35 @@
 @end
 @implementation PLANKMacHTTPSRequest
 @end
+
+// JSON true/false only. NSNumber 0/1 must not pass: @YES isEqual:@1.
+static BOOL plankMacJSONBoolean(id value) {
+    return value == (__bridge id)kCFBooleanTrue || value == (__bridge id)kCFBooleanFalse;
+}
+
+// Current Clients always send optional start_desktop. Linux uses it after PAM.
+// macOS ignores the value: it does not start or destroy the console session.
+static BOOL plankMacOptionalStartDesktop(NSDictionary *body) {
+    id flag = body[@"start_desktop"];
+    return flag == nil || plankMacJSONBoolean(flag);
+}
+
+static BOOL plankMacAuthStartBody(NSDictionary *body) {
+    if (![body[@"username"] isKindOfClass:NSString.class] || !plankMacOptionalStartDesktop(body)) return NO;
+    NSUInteger expected = 1;
+    if (body[@"start_desktop"]) ++expected;
+    if (body[@"admission"]) ++expected;
+    return body.count == expected;
+}
+
+static BOOL plankMacAuthRespondBody(NSDictionary *body) {
+    NSUInteger allowed = body[@"start_desktop"] ? 3 : 2;
+    return body.count == allowed &&
+        [body[@"conversation_id"] isKindOfClass:NSString.class] &&
+        [body[@"responses"] isKindOfClass:NSArray.class] && [body[@"responses"] count] == 1 &&
+        [body[@"responses"][0] isKindOfClass:NSString.class] &&
+        plankMacOptionalStartDesktop(body);
+}
 
 @implementation PLANKMacHTTPSAuthServer {
     sec_identity_t _identity;
@@ -38,6 +68,14 @@
     BOOL _authBusy;
     dispatch_source_t _expiryTimer;
     dispatch_group_t _socketDrain;
+    BOOL _requireAdmission;
+    BOOL _admissionConfigValid;
+    int64_t _admissionMaxTtl;
+    int64_t _admissionSkew;
+    NSString *_admissionConsumeDir;
+    NSString *_workstationUUID;
+    plank_admission_key _admissionKeys[PLANK_ADMISSION_KEYS_MAX];
+    size_t _admissionKeyCount;
 }
 
 - (instancetype)initWithIdentity:(SecIdentityRef)identity authority:(NSData *)authority
@@ -63,8 +101,43 @@
         _networkQueue = dispatch_queue_create("la.instinctual.PLANK.Host.https", DISPATCH_QUEUE_SERIAL);
         _authQueue = dispatch_queue_create("la.instinctual.PLANK.Host.authentication", DISPATCH_QUEUE_SERIAL);
         _socketDrain = dispatch_group_create();
+        _admissionSkew = -1;
     }
     return self;
+}
+
+- (void)setAdmissionTrust:(NSDictionary *)trust workstationUUID:(NSString *)workstationUUID {
+    _requireAdmission = NO;
+    _admissionConfigValid = NO;
+    _admissionKeyCount = 0;
+    _workstationUUID = [workstationUUID.lowercaseString copy];
+    if (!trust) return;
+    id required = trust[@"RequireAdmission"];
+    if (required && required != (__bridge id)kCFBooleanTrue && required != (__bridge id)kCFBooleanFalse) {
+        _requireAdmission = YES;
+        return;
+    }
+    _requireAdmission = required == (__bridge id)kCFBooleanTrue;
+    NSNumber *maxTTL = [trust[@"MaxTTL"] isKindOfClass:NSNumber.class] ? trust[@"MaxTTL"] : nil;
+    NSNumber *clockSkew = [trust[@"ClockSkew"] isKindOfClass:NSNumber.class] ? trust[@"ClockSkew"] : nil;
+    _admissionMaxTtl = maxTTL && CFGetTypeID((__bridge CFTypeRef)maxTTL) != CFBooleanGetTypeID() ? maxTTL.longLongValue : 0;
+    _admissionSkew = clockSkew && CFGetTypeID((__bridge CFTypeRef)clockSkew) != CFBooleanGetTypeID() ? clockSkew.longLongValue : -1;
+    _admissionConsumeDir = [trust[@"ConsumeDirectory"] isKindOfClass:NSString.class] ? [trust[@"ConsumeDirectory"] copy] : nil;
+    NSArray *entries = [trust[@"Trust"] isKindOfClass:NSArray.class] ? trust[@"Trust"] : @[];
+    for (NSDictionary *entry in entries) {
+        if (_admissionKeyCount == PLANK_ADMISSION_KEYS_MAX || ![entry isKindOfClass:NSDictionary.class]) {
+            _admissionConfigValid = NO;
+            return;
+        }
+        NSString *token = [NSString stringWithFormat:@"%@|%@|%@", entry[@"KeyID"], entry[@"Issuer"], entry[@"PublicKey"]];
+        if (!plank_admission_parse_trust_token(token.UTF8String, &_admissionKeys[_admissionKeyCount])) {
+            _admissionConfigValid = NO;
+            return;
+        }
+        ++_admissionKeyCount;
+    }
+    _admissionConfigValid = _admissionKeyCount > 0 && _admissionMaxTtl > 0 && _admissionSkew >= 0 &&
+        _admissionConsumeDir.length > 0 && _workstationUUID.length == 36;
 }
 
 - (void)finish:(PLANKMacHTTPSRequest *)request {
@@ -135,14 +208,31 @@
             NSString *claimedToken = nil;
             unsigned status = 400;
             if ([value isKindOfClass:NSDictionary.class]) {
-                if ([path isEqual:@"/plank/auth/start"] && [value count] == 1 &&
-                    [value[@"username"] isKindOfClass:NSString.class]) {
-                    reply = [_sessions startForPeer:request.peer username:value[@"username"]];
-                    status = 200;
-                } else if ([path isEqual:@"/plank/auth/respond"] && [value count] == 2 &&
-                    [value[@"conversation_id"] isKindOfClass:NSString.class] &&
-                    [value[@"responses"] isKindOfClass:NSArray.class] && [value[@"responses"] count] == 1 &&
-                    [value[@"responses"][0] isKindOfClass:NSString.class]) {
+                if ([path isEqual:@"/plank/auth/start"] && plankMacAuthStartBody(value)) {
+                    if (_requireAdmission) {
+                        NSDictionary *admission = [value[@"admission"] isKindOfClass:NSDictionary.class] ? value[@"admission"] : nil;
+                        NSNumber *version = [admission[@"v"] isKindOfClass:NSNumber.class] ? admission[@"v"] : nil;
+                        NSString *payload = [admission[@"payload"] isKindOfClass:NSString.class] ? admission[@"payload"] : nil;
+                        NSString *signature = [admission[@"sig"] isKindOfClass:NSString.class] ? admission[@"sig"] : nil;
+                        plank_admission_decision decision = {0};
+                        plank_admission_authorize(_requireAdmission, _admissionConfigValid,
+                            value[@"admission"] != nil, version.intValue, payload.UTF8String, signature.UTF8String,
+                            _admissionKeys, _admissionKeyCount, _workstationUUID.UTF8String,
+                            (int64_t)time(NULL), _admissionMaxTtl, _admissionSkew, _admissionConsumeDir.UTF8String, &decision);
+                        if (decision.status != PLANK_ADMISSION_STATUS_ACCEPT) {
+                            NSLog(@"PLANK admission rejected: %s admission_id=%s key_id=%s workstation_uniqueid=%@",
+                                decision.reason, decision.admission_id, decision.key_id, _workstationUUID);
+                            reply = @{@"state": @"admission_rejected"};
+                            status = 401;
+                        } else {
+                            reply = [_sessions startForPeer:request.peer username:value[@"username"]];
+                            status = 200;
+                        }
+                    } else {
+                        reply = [_sessions startForPeer:request.peer username:value[@"username"]];
+                        status = 200;
+                    }
+                } else if ([path isEqual:@"/plank/auth/respond"] && plankMacAuthRespondBody(value)) {
                     NSMutableData *password = [[value[@"responses"][0] dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
                     reply = [_sessions respondForPeer:request.peer conversation:value[@"conversation_id"] password:password];
                     status = 200;

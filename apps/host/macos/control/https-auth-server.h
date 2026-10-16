@@ -34,6 +34,7 @@ typedef NSDictionary *(^PLANKMacPrepareDisplayHandler)(NSDictionary *request, NS
                     information:(PLANKMacServerInformation *)information
                        topology:(NSDictionary *(^)(void))topology
                          launch:(PLANKMacLaunchHandler)launch;
+- (void)setAdmissionTrust:(NSDictionary *)trust workstationUUID:(NSString *)workstationUUID;
 - (BOOL)startOnAddress:(NSString *)address port:(uint16_t)port
                 ready:(void (^)(uint16_t boundPort))ready;
 - (BOOL)startOnAddress:(NSString *)address port:(uint16_t)port

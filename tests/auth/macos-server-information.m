@@ -25,7 +25,8 @@ int main(int argc, const char *argv[]) {
             @"hostname": @"Test <Mac> & desktop", @"uniqueid": uuid.UUIDString.lowercaseString,
             @"HttpsPort": @"28987", @"PlankHostMetadataVersion": @"1", @"PlankHostVersion": @"1.0.0-macos-host",
             @"PlankAuth": @"1", @"ServerCodecModeSupport": @"0", @"PlankTopologyVersion": @"0",
-            @"PlankFeatureFlags": @"0", @"PairStatus": @"0", @"PlankOccupied": @"0"
+            @"PlankFeatureFlags": @"0", @"PairStatus": @"0", @"PlankOccupied": @"0",
+            @"BroadcastSource": @"0"
         };
         // Exact default allowlist: names require administrator opt-in.
         assert(root.childCount == expected.count);

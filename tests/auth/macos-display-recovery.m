@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <unistd.h>
 
-static unsigned creations, applications, selections, wakes, releases;
+static unsigned creations, applications, selections, modeLists, wakes, releases;
 static BOOL online = YES, active = YES, authorized = YES, refuseMode, revokeOnWake;
 static BOOL bootstrapActive = YES, failWake;
 static CGDirectDisplayID bootstrapID = 43;
@@ -84,6 +84,7 @@ size_t CGDisplayPixelsHigh(CGDirectDisplayID display) { assert(display == 42); r
 CGRect CGDisplayBounds(CGDirectDisplayID display) { assert(display == 42); return CGRectMake(0, 0, pixelWidth / currentScale, pixelHeight / currentScale); }
 CFArrayRef CGDisplayCopyAllDisplayModes(CGDirectDisplayID display, CFDictionaryRef options) {
     assert(display == 42 && CFDictionaryGetValue(options, kCGDisplayShowDuplicateLowResolutionModes) == kCFBooleanTrue);
+    modeLists++;
     return CFBridgingRetain(registeredModes);
 }
 CGDisplayModeRef CGDisplayCopyDisplayMode(CGDirectDisplayID display) {
@@ -132,9 +133,18 @@ static void step(PLANKMacDesktopDisplay *display, unsigned index) {
         [display recoverWithValidity:valid completion:^(BOOL ok) { assert(ok && !wakes && !selections); next(); }]; break;
     }
     case 3: {
+        // Inactive but still online: the live WindowServer abort path. Recovery
+        // may wake and wait; it must not enumerate or reapply modes first.
         active = NO;
+        unsigned lists = modeLists, priorSelect = selections;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50*NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            assert(modeLists == lists && selections == priorSelect);
+            active = YES;
+        });
         [display recoverWithValidity:valid completion:^(BOOL ok) {
-            assert(ok && wakes == 1 && releases == 1 && applications == 1 && pixelWidth == 3840); next();
+            assert(ok && wakes == 1 && releases == 1 && applications == 1 && pixelWidth == 3840);
+            assert(modeLists == lists && selections == priorSelect);
+            next();
         }]; break;
     }
     case 4: {
@@ -142,7 +152,9 @@ static void step(PLANKMacDesktopDisplay *display, unsigned index) {
     }
     case 5: {
         active = online = NO; pixelWidth = 3840;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100*NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ online = YES; });
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100*NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            online = YES; active = YES;
+        });
         [display recoverWithValidity:valid completion:^(BOOL ok) {
             assert(ok && pixelWidth == 5120 && creations == 1 && applications == 1 && wakes == 2 && releases == 2); next();
         }]; break;
@@ -167,6 +179,9 @@ static void step(PLANKMacDesktopDisplay *display, unsigned index) {
     }
     case 9: {
         refuseMode = NO;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50*NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            active = YES; online = YES;
+        });
         [display recoverWithValidity:valid completion:^(BOOL ok) {
             assert(ok && creations == 1 && pixelWidth == 5120 && wakes == releases);
             next();
@@ -176,10 +191,11 @@ static void step(PLANKMacDesktopDisplay *display, unsigned index) {
         active = online = NO;
         NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + .15;
         unsigned priorSelections = selections;
+        unsigned lists = modeLists;
         [display recoverWithValidity:^BOOL { return NSProcessInfo.processInfo.systemUptime < deadline; }
             completion:^(BOOL ok) {
                 assert(!ok && applications == 1 && creations == 1 && selections == priorSelections);
-                assert(wakes == releases);
+                assert(modeLists == lists && wakes == releases);
                 next();
             }]; break;
     }
@@ -252,7 +268,7 @@ static void step(PLANKMacDesktopDisplay *display, unsigned index) {
         online = active = NO;
         unsigned previous = applications;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100*NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-            assert(applications == previous); online = YES;
+            assert(applications == previous); online = YES; active = YES;
         });
         [display prepareWidth:3456 height:2234 valid:valid completion:^(BOOL ok) {
             assert(ok && pixelWidth == 3456 && pixelHeight == 2234 && applications == previous + 1); next();
@@ -290,7 +306,7 @@ static void step(PLANKMacDesktopDisplay *display, unsigned index) {
         unsigned before = applications;
         active = online = NO;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100*NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-            assert(applications == before); online = YES;
+            assert(applications == before); online = YES; active = YES;
         });
         [display recoverWithValidity:valid completion:^(BOOL ok) {
             assert(ok && currentScale == 2 && pixelWidth == 3420 && applications == before); next();
@@ -317,7 +333,20 @@ static void step(PLANKMacDesktopDisplay *display, unsigned index) {
     case 28: {
         [display prepareWidth:1920 height:1080 valid:valid completion:^(BOOL ok) {
             assert(ok && currentScale == 1 && pixelWidth == 1920);
-            puts("macos_display_recovery=pass checks=29 synthetic_only=1"); exit(0);
+            next();
+        }]; break;
+    }
+    case 29: {
+        // Newly created outputs can be online but inactive until the first
+        // mode is selected. First attach must still be able to activate them.
+        unsigned lists = modeLists, priorSelect = selections, priorApps = applications;
+        active = NO;
+        PLANKMacDesktopDisplay *fresh = [PLANKMacDesktopDisplay new];
+        [fresh prepareWidth:2560 height:1440 valid:valid completion:^(BOOL ok) {
+            assert(ok && fresh.displayID == 42 && active);
+            assert(applications == priorApps + 1 && selections == priorSelect + 1);
+            assert(modeLists == lists + 1 && pixelWidth == 2560 && pixelHeight == 1440);
+            puts("macos_display_recovery=pass checks=30 synthetic_only=1"); exit(0);
         }]; break;
     }
     default: abort();

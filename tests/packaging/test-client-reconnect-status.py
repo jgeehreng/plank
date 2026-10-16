@@ -115,6 +115,19 @@ class ReconnectPresentation(unittest.TestCase):
     def test_timeout_and_logout_use_same_presentation(self):
         self.assertIn('setPlankReconnectStatus("Returning to the sign-in screen...", false)', session)
         self.assertIn('setPlankReconnectStatus("Workstation is taking longer to respond...", true)', session)
+        self.assertIn("m_ReachedUserDesktop", session)
+        self.assertIn("m_LogoutReturnedToLogin", session)
+        reconnect = between(session, "bool Session::runPlankReconnect", "bool Session::finishPlankReconnect")
+        self.assertIn("http.authenticate(m_PlankUsername, m_PlankPassword, &greeterConfirmed,", reconnect)
+        self.assertIn("!m_ReachedUserDesktop.load()", reconnect)
+        self.assertIn("greeterConfirmed && m_ReachedUserDesktop.load()", reconnect)
+        self.assertIn("PLANK reconnect stopped on the sign-in layout after the desktop was open", session)
+        self.assertIn("Returning to the sign-in screen after logout", session)
+        self.assertIn('You have logged out of the workstation.', session)
+        # Upstream Hosts accept exactly {username}, so the Client sends the flag
+        # only when it is false (missing means true).
+        self.assertIn('startBody.insert(QStringLiteral("start_desktop"), false)', http)
+        self.assertIn('respondBody.insert(QStringLiteral("start_desktop"), false)', http)
 
     def test_completion_clears_status_and_wait_restores_it(self):
         finish = between(session, "bool Session::finishPlankReconnect", "class PlankReconnectThread")

@@ -315,6 +315,18 @@ static int graphical(const char *service, NSString *role, NSString *directory, B
             return capture;
         }
         input:^id<PLANKMacInputDevice> { return [PLANKMacQuartzInput new]; }];
+    int admissionDirectory = open(directory.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (admissionDirectory < 0) return startupFailure("admission-configuration");
+    BOOL admissionPresent = faccessat(admissionDirectory, "admission.plist", F_OK, 0) == 0;
+    NSMutableData *admissionBytes = admissionPresent ? readPrivate(admissionDirectory, "admission.plist") : nil;
+    close(admissionDirectory);
+    NSDictionary *admission = nil;
+    if (admissionBytes) {
+        id parsed = [NSPropertyListSerialization propertyListWithData:admissionBytes options:NSPropertyListImmutable format:NULL error:NULL];
+        admission = [parsed isKindOfClass:NSDictionary.class] ? parsed : nil;
+    }
+    if (admissionPresent && !admission) return startupFailure("admission-configuration");
+    [runtime setAdmissionTrust:admission workstationUUID:config[@"UUID"]];
     runtime.prepareDisplay = ^BOOL(unsigned width, unsigned height, unsigned scale, NSString *encodingMode, BOOL (^valid)(void)) {
         if (!PLANKMacDesktopModeSupported(width, height)) return NO;
         dispatch_semaphore_t finished = dispatch_semaphore_create(0);
@@ -323,10 +335,24 @@ static int graphical(const char *service, NSString *role, NSString *directory, B
             [desktopDisplay prepareWidth:width height:height scale:scale
                 valid:^BOOL { return !atomic_load(&cancelled) && valid(); }
                 completion:^(BOOL success) {
-                    if (success && !atomic_load(&cancelled) && valid()) {
-                        capture.selectedDisplay = desktopDisplay.displayID;
-                        capture.encodingMode = encodingMode;
-                        atomic_store(&ready, true);
+                    if (!atomic_load(&cancelled) && valid()) {
+                        if (success) {
+                            capture.selectedDisplay = desktopDisplay.displayID;
+                            capture.encodingMode = encodingMode;
+                            atomic_store(&ready, true);
+                        } else {
+                            // Jump Desktop (or another session display) can be
+                            // the only active framebuffer. A second CGVirtualDisplay
+                            // then stays offline at 1x1. Capture that current
+                            // desktop instead of failing the stream.
+                            CGDirectDisplayID current = CGMainDisplayID();
+                            if (current && CGDisplayIsActive(current)) {
+                                capture.selectedDisplay = 0;
+                                capture.encodingMode = encodingMode;
+                                atomic_store(&ready, true);
+                                NSLog(@"PLANK desktop using current display %u; virtual output stayed offline", current);
+                            }
+                        }
                     }
                     dispatch_semaphore_signal(finished);
                 }];
